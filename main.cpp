@@ -44,26 +44,6 @@ void line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	} 
 }
 
-void drawCenteredLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
-	// line((v1.x + 1.) * width / 2., (v1.y + 1.) * height/2., (v2.x + 1.) * width / 2., (v2.y + 1.) * height / 2., image, color); 
-	std::cout << (((100 - (180*100/width)) / 100) * width) << "\n";
-	std::cout << (100. - (180.*100./width)) / 100. << "\n";
-	line(
-		v1.x + (((100. - (180.*100./width)) / 100.) * width),
-		v1.y + (((100. - (180.*100./height)) / 100.) * height),
-		v2.x + (((100. - (180.*100./width)) / 100.) * width),
-		v2.y + (((100. - (180.*100./height)) / 100.) * height),
-		image,
-		color
-	); 
-}
-
-void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
-	drawCenteredLine(t0, t1, image, color); 
-	drawCenteredLine(t1, t2, image, color); 
-	drawCenteredLine(t2, t0, image, color); 
-}
-
 void drawObjModel(TGAImage &image) {
 	for (int i=0; i < model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
@@ -77,6 +57,23 @@ void drawObjModel(TGAImage &image) {
 			line(x0, y0, x1, y1, image, white);
 		}
 	}
+}
+
+void drawCenteredLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
+	line(
+		(width * v1.x) / 200 ,
+		(height * v1.y) / 200 ,
+		(width * v2.x) / 200 ,
+		(height * v2.y) / 200 ,
+		image,
+		color
+	); 
+}
+
+void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
+	drawCenteredLine(t0, t1, image, color); 
+	drawCenteredLine(t1, t2, image, color); 
+	drawCenteredLine(t2, t0, image, color); 
 }
 
 void drawTriangles(TGAImage &image) {
