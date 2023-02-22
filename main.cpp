@@ -11,6 +11,8 @@
 const TGAColor white = TGAColor(255, 255, 255, 255);
 const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,   255);
+const TGAColor blue   = TGAColor(0, 0,   255,   255);
+const TGAColor purple   = TGAColor(255, 0,   255,   255);
 Model *model = NULL;
 const int width  = 800;
 const int height = 800;
@@ -66,19 +68,6 @@ void drawObjModel(TGAImage &image) {
 	}
 }
 
-std::vector<Vec2f> drawScaledLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color, int sectionSize) {
-	std::vector<Vec2f> linePoints = line(
-		(width * v1.x) / sectionSize,
-		(height * v1.y) / sectionSize,
-		(width * v2.x) / sectionSize,
-		(height * v2.y) / sectionSize,
-		image,
-		color
-	);
-
-	return linePoints;
-}
-
 std::vector<Vec2f> drawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
 	std::vector<Vec2f> linePoints = line(v1.x, v1.y, v2.x, v2.y, image, color);
 	return linePoints;
@@ -96,27 +85,48 @@ void drawVectorToPoint(std::vector<Vec2f> linePoints, Vec2f point, TGAImage &ima
 	}
 }
 
-void drawScaledTriangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color, int sectionSize) { 
-	std::vector<Vec2f> line1Points = drawScaledLine(t0, t1, image, color, sectionSize); 
-	std::vector<Vec2f> line2Points = drawScaledLine(t1, t2, image, color, sectionSize); 
-	std::vector<Vec2f> line3Points = drawScaledLine(t2, t0, image, color, sectionSize);
+void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
+	// sort the vertices, t0, t1, t2 lower−to−upper
+	if (t0.y>t1.y) std::swap(t0, t1); 
+	if (t0.y>t2.y) std::swap(t0, t2); 
+	if (t1.y>t2.y) std::swap(t1, t2);
+	
+	drawLine(t0, t1 - t0, image, blue);
+	drawLine(t0, t2 - t0, image, purple);
 
-	Vec2f centroid = calculateTriangleCentroid(t0, t1, t2);
-	Vec2f scaledCentroid = Vec2f((width * centroid.x) / sectionSize,(height * centroid.y) / sectionSize);
+	int total_height = t2.y-t0.y; 
+	for (int y=t0.y; y<=t1.y; y++) { 
+		int segment_height = t1.y-t0.y+1; 
+		float alpha = (float)(y-t0.y)/total_height; 
+		float beta  = (float)(y-t0.y)/segment_height; // be careful with divisions by zero 
+		Vec2i A = t0 + (t2-t0)*alpha; 
+		Vec2i B = t0 + (t1-t0)*beta; 
+		if (A.x>B.x) std::swap(A, B); 
+		for (int j=A.x; j<=B.x; j++) { 
+			image.set(j, y, color); // attention, due to int casts t0.y+i != A.y 
+		} 
+	} 
+}
 
-	drawVectorToPoint(line1Points, scaledCentroid, image, color);
-	drawVectorToPoint(line2Points, scaledCentroid, image, color);
-	drawVectorToPoint(line3Points, scaledCentroid, image, color);
+void drawTriangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
+	// std::vector<Vec2f> line1Points = drawLine(t0, t1, image, color); 
+	// std::vector<Vec2f> line2Points = drawLine(t1, t2, image, color); 
+	// std::vector<Vec2f> line3Points = drawLine(t2, t0, image, color);
+	
+	triangle(t0, t1, t2, image, color);
+}
+
+Vec2i scaleVector(Vec2i vector) {
+	return vector * 4;
 }
 
 void drawTriangles(TGAImage &image) {
-	int sectionSize = 200;
-	Vec2i t0[3] = {Vec2i(10, 70),   Vec2i(50, 160),  Vec2i(70, 80)}; 
-	Vec2i t1[3] = {Vec2i(180, 50),  Vec2i(150, 1),   Vec2i(70, 180)}; 
-	Vec2i t2[3] = {Vec2i(180, 150), Vec2i(120, 160), Vec2i(130, 180)}; 
-	drawScaledTriangle(t0[0], t0[1], t0[2], image, red, sectionSize); 
-	drawScaledTriangle(t1[0], t1[1], t1[2], image, white, sectionSize); 
-	drawScaledTriangle(t2[0], t2[1], t2[2], image, green, sectionSize);
+	Vec2i t0[3] = { scaleVector(Vec2i(10, 70)),   scaleVector(Vec2i(50, 160)),  scaleVector(Vec2i(70, 80)) }; 
+	Vec2i t1[3] = { scaleVector(Vec2i(180, 50)),  scaleVector(Vec2i(150, 1)),   scaleVector(Vec2i(70, 180)) }; 
+	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) }; 
+	drawTriangle(t0[0], t0[1], t0[2], image, red); 
+	drawTriangle(t1[0], t1[1], t1[2], image, white); 
+	drawTriangle(t2[0], t2[1], t2[2], image, green);
 }
 
 void openTGAOutput() {
