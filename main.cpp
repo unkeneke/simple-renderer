@@ -51,8 +51,8 @@ std::vector<Vec2f> line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColo
 	}
 
 	return linePoints;
-}
-
+} 
+ 
 void drawObjModel(TGAImage &image) {
 	for (int i=0; i < model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
@@ -85,7 +85,7 @@ void drawVectorToPoint(std::vector<Vec2f> linePoints, Vec2f point, TGAImage &ima
 	}
 }
 
-void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
+void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
 	// sort the vertices, t0, t1, t2 lower−to−upper
 	if (t0.y>t1.y) std::swap(t0, t1); 
 	if (t0.y>t2.y) std::swap(t0, t2); 
@@ -116,8 +116,43 @@ void triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) {
 	} 
 }
 
-void drawTriangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
-	triangle(t0, t1, t2, image, color);
+Vec3f barycentric(Vec2i *pts, Vec2i P) { 
+	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
+	/* `pts` and `P` has integer value as coordinates
+	   so `abs(u[2])` < 1 means `u[2]` is 0, that means
+	   triangle is degenerate, in this case return something with negative coordinates */
+	if (std::abs(u.z)<1) {
+		return Vec3f(-1,1,1);
+	}
+	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
+} 
+ 
+void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color) { 
+	Vec2i bboxmin(image.get_width()-1,  image.get_height()-1); 
+	Vec2i bboxmax(0, 0); 
+	Vec2i clamp(image.get_width()-1, image.get_height()-1); 
+	for (int i=0; i<3; i++) { 
+		bboxmin.x = std::max<int>(0, std::min<int>(bboxmin.x, pts[i].x));
+		bboxmin.y = std::max<int>(0, std::min<int>(bboxmin.y, pts[i].y));
+
+		bboxmax.x = std::min<int>(clamp.x, std::max<int>(bboxmax.x, pts[i].x));
+		bboxmax.y = std::min<int>(clamp.y, std::max<int>(bboxmax.y, pts[i].y));
+	} 
+	Vec2i P; 
+	for (P.x=bboxmin.x; P.x<=bboxmax.x; P.x++) { 
+		for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) { 
+			Vec3f bc_screen  = barycentric(pts, P); 
+			if (bc_screen.x<0 || bc_screen.y<0 || bc_screen.z<0) {
+				continue;
+			}
+			image.set(P.x, P.y, color); 
+		} 
+	} 
+} 
+
+void drawTriangle(Vec2i* triangle, TGAImage &image, TGAColor color) { 
+	// drawTriangleByLineSweeping(triangle[0], triangle[1], triangle[2], image, color);
+	drawTriangleByBarycentricPoint(triangle, image, color);
 }
 
 Vec2i scaleVector(Vec2i vector) {
@@ -128,9 +163,9 @@ void drawTriangles(TGAImage &image) {
 	Vec2i t0[3] = { scaleVector(Vec2i(10, 70)),   scaleVector(Vec2i(50, 160)),  scaleVector(Vec2i(70, 80)) }; 
 	Vec2i t1[3] = { scaleVector(Vec2i(180, 50)),  scaleVector(Vec2i(150, 1)),   scaleVector(Vec2i(70, 180)) }; 
 	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) }; 
-	drawTriangle(t0[0], t0[1], t0[2], image, red); 
-	drawTriangle(t1[0], t1[1], t1[2], image, white); 
-	drawTriangle(t2[0], t2[1], t2[2], image, green);
+	drawTriangle(t0, image, red); 
+	drawTriangle(t1, image, white); 
+	drawTriangle(t2, image, green);
 }
 
 void openTGAOutput() {
