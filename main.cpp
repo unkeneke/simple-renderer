@@ -129,7 +129,7 @@ Vec3f barycentric(Vec2i *pts, Vec2i P) {
 		return Vec3f(-1,1,1);
 	}
 	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
-} 
+}  
  
 void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color) { 
 	Vec2i bboxmin(image.get_width()-1,  image.get_height()-1); 
