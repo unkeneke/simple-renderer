@@ -103,6 +103,7 @@ void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, T
 			image.set(j, y, color); // attention, due to int casts t0.y+i != A.y 
 		} 
 	}
+	// This needs to be refactored into a single call for both loops 
 	for (int y=t1.y; y<=t2.y; y++) { 
 		int segment_height = t2.y-t1.y+1; 
 		float alpha = (float)(y-t0.y)/total_height; 
@@ -116,11 +117,14 @@ void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, T
 	} 
 }
 
-Vec3f barycentric(Vec2i *pts, Vec2i P) { 
+Vec3f barycentric(Vec2i *pts, Vec2i P) {
+	// (xA,xB) = (x2,y2) - (x0,y0)
+	// (yA,yB) = (x1,y1) - (x0,y0)
+	// (zA,zB) = (x0,y0) - (xP,yP) 
 	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
-	/* `pts` and `P` has integer value as coordinates
-	   so `abs(u[2])` < 1 means `u[2]` is 0, that means
-	   triangle is degenerate, in this case return something with negative coordinates */
+	// `pts` and `P` has integer value as coordinates
+	// so `abs(u[2])` < 1 means `u[2]` is 0, that means
+	// triangle is degenerate, in this case return something with negative coordinates
 	if (std::abs(u.z)<1) {
 		return Vec3f(-1,1,1);
 	}
