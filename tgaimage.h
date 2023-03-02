@@ -57,6 +57,10 @@ struct TGAColor {
 		}
 		return *this;
 	}
+
+	bool operator ==(const TGAColor &c) {
+		return val == c.val;
+	}
 };
 
 

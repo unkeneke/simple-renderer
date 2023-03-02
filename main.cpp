@@ -13,7 +13,7 @@ const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,   255);
 const TGAColor blue   = TGAColor(0, 0,   255,   255);
 const TGAColor purple   = TGAColor(255, 0,   255,   255);
-const TGAColor* noColor = nullptr;
+const TGAColor noColor;
 Model *model = NULL;
 const int width  = 800;
 const int height = 800;
@@ -180,7 +180,7 @@ void drawTriangles(TGAImage &image) {
 	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
 	// Vec2i t3[3] = { scaleVector(Vec2i(10, 10)), scaleVector(Vec2i(100, 30)), scaleVector(Vec2i(190, 160)) }; 
 	drawTriangle(t0, image, red); 
-	drawTriangle(t1, image, green); 
+	drawTriangle(t1, image, noColor); 
 	drawTriangle(t2, image, white);
 	// drawTriangle(t3, image, blue);
 }
