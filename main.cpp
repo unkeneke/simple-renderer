@@ -13,7 +13,8 @@ const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,   255);
 const TGAColor blue   = TGAColor(0, 0,   255,   255);
 const TGAColor purple   = TGAColor(255, 0,   255,   255);
-const TGAColor noColor;
+const TGAColor backgroundGradient = TGAColor(-1, 0,   0,   255);
+const TGAColor random = TGAColor(-2, 0,   0,   255);
 Model *model = NULL;
 const int width  = 800;
 const int height = 800;
@@ -53,21 +54,6 @@ std::vector<Vec2f> line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColo
 
 	return linePoints;
 } 
- 
-void drawObjModel(TGAImage &image) {
-	for (int i=0; i < model->nfaces(); i++) {
-		std::vector<int> face = model->face(i);
-		for (int j=0; j < 3; j++) {
-			Vec3f v0 = model->vert(face[j]);
-			Vec3f v1 = model->vert(face[(j+1)%3]);
-			int x0 = (v0.x + 1.) * width/2.;
-			int y0 = (v0.y + 1.) * height/2.;
-			int x1 = (v1.x + 1.) * width/2.;
-			int y1 = (v1.y + 1.) * height/2.;
-			line(x0, y0, x1, y1, image, white);
-		}
-	}
-}
 
 std::vector<Vec2f> drawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
 	std::vector<Vec2f> linePoints = line(v1.x, v1.y, v2.x, v2.y, image, color);
@@ -75,7 +61,7 @@ std::vector<Vec2f> drawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color)
 }
 
 Vec2f calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2) {
-	float xc = (t0.x + t1.x + t2.x) / 3;//* 0.33333333333;
+	float xc = (t0.x + t1.x + t2.x) / 3;//* 0.33333333333; // this could be faster than division
 	float yc = (t0.y + t1.y + t2.y) / 3;//* 0.33333333333;
 	return Vec2f(xc, yc);
 }
@@ -104,7 +90,7 @@ void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, T
 			image.set(j, y, color); // attention, due to int casts t0.y+i != A.y 
 		} 
 	}
-	// This needs to be refactored into a single call for both loops 
+	// Both loops need to be refactored into a single call
 	for (int y=t1.y; y<=t2.y; y++) { 
 		int segment_height = t2.y-t1.y+1; 
 		float alpha = (float)(y-t0.y)/total_height; 
@@ -148,16 +134,20 @@ void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color)
 		bboxmax.x = std::min<int>(clamp.x, std::max<int>(bboxmax.x, pts[i].x));
 		bboxmax.y = std::min<int>(clamp.y, std::max<int>(bboxmax.y, pts[i].y));
 	} 
-	Vec2i P; 
+	Vec2i P;
+	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
 	for (P.x=bboxmin.x; P.x<=bboxmax.x; P.x++) { 
 		for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) {
 			Vec3f bc_screen  = barycentric(pts, P); 
 			if (bc_screen.x<0 || bc_screen.y<0 || bc_screen.z<0) {
 				continue;
 			}
-			if (color == noColor) {
+			if (color == backgroundGradient) {
 				Vec2f color = normalizePixel(&P);
 				image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
+			} else
+				if (color == random) {
+				image.set(P.x, P.y, randomColor);
 			} else {
 				image.set(P.x, P.y, color);
 			}
@@ -180,9 +170,41 @@ void drawTriangles(TGAImage &image) {
 	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
 	// Vec2i t3[3] = { scaleVector(Vec2i(10, 10)), scaleVector(Vec2i(100, 30)), scaleVector(Vec2i(190, 160)) }; 
 	drawTriangle(t0, image, red); 
-	drawTriangle(t1, image, noColor); 
+	drawTriangle(t1, image, green); 
 	drawTriangle(t2, image, white);
 	// drawTriangle(t3, image, blue);
+}
+
+void drawObjModel(TGAImage &image) {
+	for (int i=0; i < model->nfaces(); i++) {
+		std::vector<int> face = model->face(i);
+		for (int j=0; j < 3; j++) {
+			Vec3f v0 = model->vert(face[j]);
+			Vec3f v1 = model->vert(face[(j+1)%3]);
+			int x0 = (v0.x + 1.) * width/2.;
+			int y0 = (v0.y + 1.) * height/2.;
+			int x1 = (v1.x + 1.) * width/2.;
+			int y1 = (v1.y + 1.) * height/2.;
+			line(x0, y0, x1, y1, image, white);
+		}
+	}
+}
+
+void drawObjModelWithColors(TGAImage &image) {
+	for (int i=0; i < model->nfaces(); i++) {
+		std::vector<int> face = model->face(i);
+		
+		Vec2i trianglePoints[3] = {};
+		for (int j=0; j < 3; j++) {
+			Vec3f v0 = model->vert(face[j]);
+
+			int x0 = (v0.x + 1.) * width/2.;
+			int y0 = (v0.y + 1.) * height/2.;
+
+			trianglePoints[j] = Vec2i(x0,y0); 
+		}
+		drawTriangle(trianglePoints, image, random); 
+	}
 }
 
 void openTGAOutput() {
@@ -208,12 +230,14 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(width, height, TGAImage::RGB);
+
 	
+	// drawTriangles(image);
+	drawObjModelWithColors(image);
+	// drawObjModel(image);
+
 	
-	drawTriangles(image);
-	
-	
-	image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
+	image.flip_vertically(); // Origin is at the left bottom corner of the image
 	image.write_tga_file("output.tga");
 	delete model;
 
