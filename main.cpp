@@ -13,6 +13,7 @@ const TGAColor red   = TGAColor(255, 0,   0,   255);
 const TGAColor green   = TGAColor(0, 255,   0,   255);
 const TGAColor blue   = TGAColor(0, 0,   255,   255);
 const TGAColor purple   = TGAColor(255, 0,   255,   255);
+const TGAColor* noColor = nullptr;
 Model *model = NULL;
 const int width  = 800;
 const int height = 800;
@@ -127,7 +128,14 @@ Vec3f barycentric(Vec2i *pts, Vec2i P) {
 		return Vec3f(-1,1,1);
 	}
 	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
-}  
+}
+
+Vec2f normalizePixel(Vec2i* pixel) {
+	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
+	float x = (pixel->x - 1.) / (width - 1.);
+	float y = (pixel->y - 1.) / (height - 1.);
+	return Vec2f(x,y);
+}
  
 void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color) { 
 	Vec2i bboxmin(image.get_width()-1,  image.get_height()-1); 
@@ -142,12 +150,17 @@ void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color)
 	} 
 	Vec2i P; 
 	for (P.x=bboxmin.x; P.x<=bboxmax.x; P.x++) { 
-		for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) { 
+		for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) {
 			Vec3f bc_screen  = barycentric(pts, P); 
 			if (bc_screen.x<0 || bc_screen.y<0 || bc_screen.z<0) {
 				continue;
 			}
-			image.set(P.x, P.y, color); 
+			if (color == noColor) {
+				Vec2f color = normalizePixel(&P);
+				image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
+			} else {
+				image.set(P.x, P.y, color);
+			}
 		} 
 	} 
 } 
@@ -167,8 +180,8 @@ void drawTriangles(TGAImage &image) {
 	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
 	// Vec2i t3[3] = { scaleVector(Vec2i(10, 10)), scaleVector(Vec2i(100, 30)), scaleVector(Vec2i(190, 160)) }; 
 	drawTriangle(t0, image, red); 
-	drawTriangle(t1, image, white); 
-	drawTriangle(t2, image, green);
+	drawTriangle(t1, image, green); 
+	drawTriangle(t2, image, white);
 	// drawTriangle(t3, image, blue);
 }
 
