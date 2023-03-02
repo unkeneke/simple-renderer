@@ -118,12 +118,10 @@ void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, T
 }
 
 Vec3f barycentric(Vec2i *pts, Vec2i P) {
-	// (xA,xB) = (x2,y2) - (x0,y0)
-	// (yA,yB) = (x1,y1) - (x0,y0)
-	// (zA,zB) = (x0,y0) - (xP,yP) 
+	// (ACx, ABx, PAx) x (ACy, ABy, PAy) 
 	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
-	// `pts` and `P` has integer value as coordinates
-	// so `abs(u[2])` < 1 means `u[2]` is 0, that means
+	// pts and P has integer value as coordinates
+	// so abs(u[2]) < 1 means u[2] is 0, that means
 	// triangle is degenerate, in this case return something with negative coordinates
 	if (std::abs(u.z)<1) {
 		return Vec3f(-1,1,1);
@@ -166,10 +164,12 @@ Vec2i scaleVector(Vec2i vector) {
 void drawTriangles(TGAImage &image) {
 	Vec2i t0[3] = { scaleVector(Vec2i(10, 70)),   scaleVector(Vec2i(50, 160)),  scaleVector(Vec2i(70, 80)) }; 
 	Vec2i t1[3] = { scaleVector(Vec2i(180, 50)),  scaleVector(Vec2i(150, 1)),   scaleVector(Vec2i(70, 180)) }; 
-	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) }; 
+	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
+	// Vec2i t3[3] = { scaleVector(Vec2i(10, 10)), scaleVector(Vec2i(100, 30)), scaleVector(Vec2i(190, 160)) }; 
 	drawTriangle(t0, image, red); 
 	drawTriangle(t1, image, white); 
 	drawTriangle(t2, image, green);
+	// drawTriangle(t3, image, blue);
 }
 
 void openTGAOutput() {
