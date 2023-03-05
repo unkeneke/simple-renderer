@@ -178,9 +178,9 @@ void drawTriangles(TGAImage &image) {
 void drawObjModel(TGAImage &image) {
 	for (int i=0; i < model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
-		for (int j=0; j < 3; j++) {
-			Vec3f v0 = model->vert(face[j]);
-			Vec3f v1 = model->vert(face[(j+1)%3]);
+		for (int j=0; j < face.size(); j++) {
+ 			Vec3f v0 = model->vert(face[j]);
+			Vec3f v1 = model->vert(face[(j+1)%face.size()]);
 			int x0 = (v0.x + 1.) * WIDTH/2.;
 			int y0 = (v0.y + 1.) * HEIGHT/2.;
 			int x1 = (v1.x + 1.) * WIDTH/2.;
@@ -218,6 +218,30 @@ void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 	}
 }
 
+void rasterize(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int ybuffer[]) {
+	if (p0.x>p1.x) {
+		std::swap(p0, p1);
+	}
+	for (int x=p0.x; x<=p1.x; x++) {
+		float t = (x-p0.x)/(float)(p1.x-p0.x);
+		int y = p0.y*(1.-t) + p1.y*t;
+		if (ybuffer[x]<y) {
+			ybuffer[x] = y;
+			image.set(x, 0, color);
+		}
+	}
+}
+
+void render(TGAImage &image) {
+	int ybuffer[WIDTH];
+	for (int i=0; i<WIDTH; i++) {
+		ybuffer[i] = (std::numeric_limits<int>::min)();
+	}
+	rasterize(Vec2i(20, 34),   Vec2i(744, 400), image, COLOR_RED,   ybuffer);
+	rasterize(Vec2i(120, 434), Vec2i(444, 400), image, COLOR_GREEN, ybuffer);
+	rasterize(Vec2i(330, 463), Vec2i(594, 200), image, COLOR_BLUE,  ybuffer);
+}
+
 void openTGAOutput() {
 	SHELLEXECUTEINFOW ShExecInfo = {};
 	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
@@ -244,8 +268,9 @@ int main(int argc, char** argv) {
 
 	
 	// drawTriangles(image);
-	drawObjModelWithColors(image, true);
+	// drawObjModelWithColors(image, false);
 	// drawObjModel(image);
+	render(image);
 
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
