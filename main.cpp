@@ -15,9 +15,12 @@ const TGAColor COLOR_BLUE   = TGAColor(0, 0,   255,   255);
 const TGAColor COLOR_PURPLE   = TGAColor(255, 0,   255,   255);
 const TGAColor COLOR_BACKGROUND_GRADIENT = TGAColor(-1, 0,   0,   255);
 const TGAColor COLOR_RANDOM = TGAColor(-2, 0,   0,   255);
-Model *model = NULL;
+
 const int WIDTH  = 800;
 const int HEIGHT = 800;
+
+float *zBuffer = new float[WIDTH * HEIGHT];
+Model *model = NULL;
 Vec3f lightDirection(0,0,-1); 
 
 std::vector<Vec2f> line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
@@ -117,6 +120,18 @@ Vec3f barycentric(Vec2i *pts, Vec2i P) {
 	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
 }
 
+Vec3f barycentricZBuffer(Vec3f *pts, Vec3f P) {
+	// (ACx, ABx, PAx) x (ACy, ABy, PAy) 
+	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
+	// pts and P has integer value as coordinates
+	// so abs(u[2]) < 1 means u[2] is 0, that means
+	// triangle is degenerate, in this case return something with negative coordinates
+	if (std::abs(u.z)<1) {
+		return Vec3f(-1,1,1);
+	}
+	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
+}
+
 Vec2f normalizePixel(Vec2i* pixel) {
 	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
 	float x = (pixel->x - 1.) / (WIDTH - 1.);
@@ -150,6 +165,47 @@ void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color)
 				image.set(P.x, P.y, randomColor);
 			} else {
 				image.set(P.x, P.y, color);
+			}
+		} 
+	} 
+}
+
+void drawTriangleZBuffer(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor color) { 
+	Vec2f bboxmin( (std::numeric_limits<float>::max)(),  (std::numeric_limits<float>::max)());
+	Vec2f bboxmax(-(std::numeric_limits<float>::max)(), -(std::numeric_limits<float>::max)());
+	Vec2i clamp(image.get_width()-1, image.get_height()-1); 
+	for (int i=0; i<3; i++) { 
+		bboxmin.x = std::max<int>(0.f, std::min<int>(bboxmin.x, pts[i].x));
+		bboxmin.y = std::max<int>(0.f, std::min<int>(bboxmin.y, pts[i].y));
+
+		bboxmax.x = std::min<int>(clamp.x, std::max<int>(bboxmax.x, pts[i].x));
+		bboxmax.y = std::min<int>(clamp.y, std::max<int>(bboxmax.y, pts[i].y));
+	} 
+	Vec3f P;
+	
+	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
+
+	for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) { 
+		for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
+			Vec3f barycentricScreen  = barycentricZBuffer(pts, P); 
+			if (barycentricScreen.x < 0 || barycentricScreen.y < 0 || barycentricScreen.z < 0) {
+				continue;
+			}
+			P.z = 0;
+			P.z += pts[0].z * barycentricScreen.x;
+			P.z += pts[1].z * barycentricScreen.y;
+			P.z += pts[2].z * barycentricScreen.z;
+			if (zbuffer[int(P.x + P.y * WIDTH)] < P.z) {
+				zbuffer[int(P.x + P.y * WIDTH)] = P.z;
+				if (color == COLOR_BACKGROUND_GRADIENT) {
+					// Vec2f color = normalizePixel(&P);
+					// image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
+				} else if (color == COLOR_RANDOM) {
+					image.set(P.x, P.y, randomColor);
+				} else {
+					zbuffer[int(P.x+P.y*WIDTH)] = P.z;
+					image.set(P.x, P.y, color);
+				}
 			}
 		} 
 	} 
@@ -193,15 +249,16 @@ void drawObjModel(TGAImage &image) {
 void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 	for (int i=0; i < model->nfaces(); i++) {
 		std::vector<int> face = model->face(i);
-		Vec2i trianglePoints[3] = {};
+		Vec3f trianglePoints[3] = {};
 		Vec3f worldCoords[3]; 
 		for (int j=0; j < 3; j++) {
 			Vec3f vertex = model->vert(face[j]);
 
 			int x0 = (vertex.x + 1.) * WIDTH / 2.;
 			int y0 = (vertex.y + 1.) * HEIGHT / 2.;
+			int z0 = 0;
 
-			trianglePoints[j] = Vec2i(x0,y0);
+			trianglePoints[j] = Vec3f(x0,y0, z0);
 
 			worldCoords[j]  = vertex; 
 		}
@@ -210,36 +267,26 @@ void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 			normalVector.normalize(); 
 			float intensity = normalVector * lightDirection; 
 			if (intensity > 0) { 
-				drawTriangle(trianglePoints, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
+				drawTriangleZBuffer(trianglePoints, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
 			} 
 		} else {
-			drawTriangle(trianglePoints, image, COLOR_RANDOM);
+			drawTriangleZBuffer(trianglePoints, zBuffer, image, COLOR_RANDOM);
 		}
 	}
 }
 
-void rasterize(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int ybuffer[]) {
+void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int yBuffer[]) {
 	if (p0.x>p1.x) {
 		std::swap(p0, p1);
 	}
 	for (int x=p0.x; x<=p1.x; x++) {
 		float t = (x-p0.x)/(float)(p1.x-p0.x);
 		int y = p0.y*(1.-t) + p1.y*t;
-		if (ybuffer[x]<y) {
-			ybuffer[x] = y;
+		if (yBuffer[x]<y) {
+			yBuffer[x] = y;
 			image.set(x, 0, color);
 		}
 	}
-}
-
-void render(TGAImage &image) {
-	int ybuffer[WIDTH];
-	for (int i=0; i<WIDTH; i++) {
-		ybuffer[i] = (std::numeric_limits<int>::min)();
-	}
-	rasterize(Vec2i(20, 34),   Vec2i(744, 400), image, COLOR_RED,   ybuffer);
-	rasterize(Vec2i(120, 434), Vec2i(444, 400), image, COLOR_GREEN, ybuffer);
-	rasterize(Vec2i(330, 463), Vec2i(594, 200), image, COLOR_BLUE,  ybuffer);
 }
 
 void openTGAOutput() {
@@ -268,9 +315,8 @@ int main(int argc, char** argv) {
 
 	
 	// drawTriangles(image);
-	// drawObjModelWithColors(image, false);
+	drawObjModelWithColors(image, true);
 	// drawObjModel(image);
-	render(image);
 
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
