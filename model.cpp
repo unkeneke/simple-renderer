@@ -13,24 +13,34 @@ Model::Model(const char *filename) : verts_(), faces_() {
     while (!in.eof()) {
         std::getline(in, line);
         std::istringstream iss(line.c_str());
-        char trash;
+        std::string trash;
         if (!line.compare(0, 2, "v ")) {
             iss >> trash;
             Vec3f v;
-            for (int i=0;i<3;i++) iss >> v.raw[i];
+            for (int i=0;i<3;i++) {
+                iss >> v.raw[i];
+            }
             verts_.push_back(v);
+        } else if (!line.compare(0, 4, "vt  ")) {
+            iss >> trash;
+            Vec3f v;
+            for (int i=0;i<3;i++) {
+                iss >> v.raw[i];
+            }
+            vertTextures_.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
             std::vector<int> f;
-            int itrash, idx;
-            iss >> trash;
-            while (iss >> idx >> trash >> itrash >> trash >> itrash) {
+            int idx, idy, idz;
+            char ctrash;
+            iss >> ctrash;
+            while (iss >> idx >> ctrash >> idy >> ctrash >> idz) {
                 idx--; // in wavefront obj all indices start at 1, not zero
                 f.push_back(idx);
             }
             faces_.push_back(f);
         }
     }
-    std::cerr << "# v# " << verts_.size() << " f# "  << faces_.size() << std::endl;
+    std::cerr << "# v# " << verts_.size() << " vt# " << vertTextures_.size() << " f# "  << faces_.size() << std::endl;
 }
 
 Model::~Model() {
@@ -38,6 +48,10 @@ Model::~Model() {
 
 int Model::nverts() {
     return (int)verts_.size();
+}
+
+int Model::nvertTextures() {
+    return (int)vertTextures_.size();
 }
 
 int Model::nfaces() {
@@ -50,5 +64,9 @@ std::vector<int> Model::face(int idx) {
 
 Vec3f Model::vert(int i) {
     return verts_[i];
+}
+
+Vec3f Model::vertTexture(int i) {
+    return vertTextures_[i];
 }
 
