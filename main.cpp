@@ -21,9 +21,10 @@ const int HEIGHT = 800;
 
 float *zBuffer = new float[WIDTH * HEIGHT];
 Model *model = NULL;
-Vec3f lightDirection(0,0,-1); 
+Vec3f lightDirection(0,0,-1);
+Vec2i clamp(WIDTH - 1, HEIGHT - 1); 
 
-std::vector<Vec2f> line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
+std::vector<Vec2f> drawLine(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	std::vector<Vec2f> linePoints;
 	
 	bool steep = false; 
@@ -59,11 +60,6 @@ std::vector<Vec2f> line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColo
 	return linePoints;
 } 
 
-std::vector<Vec2f> drawLine(Vec2i v1, Vec2i v2, TGAImage &image, TGAColor color) {
-	std::vector<Vec2f> linePoints = line(v1.x, v1.y, v2.x, v2.y, image, color);
-	return linePoints;
-}
-
 Vec2f calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2) {
 	float xc = (t0.x + t1.x + t2.x) / 3;//* 0.33333333333; // this could be faster than division
 	float yc = (t0.y + t1.y + t2.y) / 3;//* 0.33333333333;
@@ -72,7 +68,7 @@ Vec2f calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2) {
 
 void drawVectorToPoint(std::vector<Vec2f> linePoints, Vec2f point, TGAImage &image, TGAColor color) {
 	for (int i = 0; i < linePoints.size(); i++) {
-		line(linePoints.at(i).x, linePoints.at(i).y, point.x, point.y, image, color);
+		drawLine(linePoints.at(i).x, linePoints.at(i).y, point.x, point.y, image, color);
 	}
 }
 
@@ -108,7 +104,38 @@ void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, T
 	} 
 }
 
-Vec3f barycentric(Vec2i *pts, Vec2i P) {
+void drawTriangle(Vec2i* triangle, TGAImage &image, TGAColor color) { 
+	drawTriangleByLineSweeping(triangle[0], triangle[1], triangle[2], image, color);
+}
+
+Vec2i scaleVector(Vec2i vector) {
+	return vector * 4;
+}
+
+void drawTriangleExamples(TGAImage &image) {
+	Vec2i t0[3] = { scaleVector(Vec2i(10, 70)),   scaleVector(Vec2i(50, 160)),  scaleVector(Vec2i(70, 80)) }; 
+	Vec2i t1[3] = { scaleVector(Vec2i(180, 50)),  scaleVector(Vec2i(150, 1)),   scaleVector(Vec2i(70, 180)) }; 
+	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
+	drawTriangle(t0, image, COLOR_RED); 
+	drawTriangle(t1, image, COLOR_GREEN); 
+	drawTriangle(t2, image, COLOR_WHITE);
+}
+
+void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int yBuffer[]) {
+	if (p0.x>p1.x) {
+		std::swap(p0, p1);
+	}
+	for (int x=p0.x; x<=p1.x; x++) {
+		float t = (x-p0.x)/(float)(p1.x-p0.x);
+		int y = p0.y*(1.-t) + p1.y*t;
+		if (yBuffer[x]<y) {
+			yBuffer[x] = y;
+			image.set(x, 0, color);
+		}
+	}
+}
+
+Vec3f getBarycentricVector(Vec3f *pts, Vec3f P) {
 	// (ACx, ABx, PAx) x (ACy, ABy, PAy) 
 	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
 	// pts and P has integer value as coordinates
@@ -120,74 +147,39 @@ Vec3f barycentric(Vec2i *pts, Vec2i P) {
 	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
 }
 
-Vec3f barycentricZBuffer(Vec3f *pts, Vec3f P) {
-	// (ACx, ABx, PAx) x (ACy, ABy, PAy) 
-	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
-	// pts and P has integer value as coordinates
-	// so abs(u[2]) < 1 means u[2] is 0, that means
-	// triangle is degenerate, in this case return something with negative coordinates
-	if (std::abs(u.z)<1) {
-		return Vec3f(-1,1,1);
-	}
-	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
-}
-
-Vec2f normalizePixel(Vec2i* pixel) {
+Vec2f normalizePixel(Vec3f* pixel) {
 	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
 	float x = (pixel->x - 1.) / (WIDTH - 1.);
 	float y = (pixel->y - 1.) / (HEIGHT - 1.);
 	return Vec2f(x,y);
 }
- 
-void drawTriangleByBarycentricPoint(Vec2i *pts, TGAImage &image, TGAColor color) { 
-	Vec2i bboxmin(image.get_width()-1,  image.get_height()-1); 
-	Vec2i bboxmax(0, 0); 
-	Vec2i clamp(image.get_width()-1, image.get_height()-1); 
-	for (int i=0; i<3; i++) { 
-		bboxmin.x = std::max<int>(0, std::min<int>(bboxmin.x, pts[i].x));
-		bboxmin.y = std::max<int>(0, std::min<int>(bboxmin.y, pts[i].y));
 
-		bboxmax.x = std::min<int>(clamp.x, std::max<int>(bboxmax.x, pts[i].x));
-		bboxmax.y = std::min<int>(clamp.y, std::max<int>(bboxmax.y, pts[i].y));
-	} 
-	Vec2i P;
-	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
-	for (P.x=bboxmin.x; P.x<=bboxmax.x; P.x++) { 
-		for (P.y=bboxmin.y; P.y<=bboxmax.y; P.y++) {
-			Vec3f barycentricScreen  = barycentric(pts, P); 
-			if (barycentricScreen.x < 0 || barycentricScreen.y < 0 || barycentricScreen.z < 0) {
-				continue;
-			}
-			if (color == COLOR_BACKGROUND_GRADIENT) {
-				Vec2f color = normalizePixel(&P);
-				image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
-			} else if (color == COLOR_RANDOM) {
-				image.set(P.x, P.y, randomColor);
-			} else {
-				image.set(P.x, P.y, color);
-			}
-		} 
+void setScreenBoundaries(Vec3f *pts, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
+	bboxMin->u = image.get_width()-1;
+	bboxMin->v =  image.get_height()-1; 
+	bboxMax->u = 0;
+	bboxMax->v = 0;
+	for (int i=0; i<3; i++) { 
+		bboxMin->x = std::max<int>(0, std::min<int>(bboxMin->x, pts[i].x));
+		bboxMin->y = std::max<int>(0, std::min<int>(bboxMin->y, pts[i].y));
+
+		bboxMax->x = std::min<int>(clamp.x, std::max<int>(bboxMax->x, pts[i].x));
+		bboxMax->y = std::min<int>(clamp.y, std::max<int>(bboxMax->y, pts[i].y));
 	} 
 }
 
-void drawTriangleZBuffer(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor color) { 
-	Vec2f bboxmin( (std::numeric_limits<float>::max)(),  (std::numeric_limits<float>::max)());
-	Vec2f bboxmax(-(std::numeric_limits<float>::max)(), -(std::numeric_limits<float>::max)());
-	Vec2i clamp(image.get_width()-1, image.get_height()-1); 
-	for (int i=0; i<3; i++) { 
-		bboxmin.x = std::max<int>(0.f, std::min<int>(bboxmin.x, pts[i].x));
-		bboxmin.y = std::max<int>(0.f, std::min<int>(bboxmin.y, pts[i].y));
-
-		bboxmax.x = std::min<int>(clamp.x, std::max<int>(bboxmax.x, pts[i].x));
-		bboxmax.y = std::min<int>(clamp.y, std::max<int>(bboxmax.y, pts[i].y));
-	} 
+void drawTriangleWithZBuffer(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor color) { 	
+	Vec2i* bboxMin = new Vec2i();
+	Vec2i* bboxMax = new Vec2i();
+	setScreenBoundaries(pts, bboxMin, bboxMax, image );
+	
 	Vec3f P;
 	
 	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
 
-	for (P.x = bboxmin.x; P.x <= bboxmax.x; P.x++) { 
-		for (P.y = bboxmin.y; P.y <= bboxmax.y; P.y++) {
-			Vec3f barycentricScreen  = barycentricZBuffer(pts, P); 
+	for (P.x = bboxMin->x; P.x <= bboxMax->x; P.x++) { 
+		for (P.y = bboxMin->y; P.y <= bboxMax->y; P.y++) {
+			Vec3f barycentricScreen  = getBarycentricVector(pts, P); 
 			if (barycentricScreen.x < 0 || barycentricScreen.y < 0 || barycentricScreen.z < 0) {
 				continue;
 			}
@@ -198,38 +190,20 @@ void drawTriangleZBuffer(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor c
 			if (zbuffer[int(P.x + P.y * WIDTH)] < P.z) {
 				zbuffer[int(P.x + P.y * WIDTH)] = P.z;
 				if (color == COLOR_BACKGROUND_GRADIENT) {
-					// Vec2f color = normalizePixel(&P);
-					// image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
+					Vec2f color = normalizePixel(&P);
+					image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
 				} else if (color == COLOR_RANDOM) {
 					image.set(P.x, P.y, randomColor);
 				} else {
-					zbuffer[int(P.x+P.y*WIDTH)] = P.z;
 					image.set(P.x, P.y, color);
 				}
 			}
 		} 
-	} 
+	}
+
+	delete bboxMax;
+	delete bboxMin;
 } 
-
-void drawTriangle(Vec2i* triangle, TGAImage &image, TGAColor color) { 
-	// drawTriangleByLineSweeping(triangle[0], triangle[1], triangle[2], image, color);
-	drawTriangleByBarycentricPoint(triangle, image, color);
-}
-
-Vec2i scaleVector(Vec2i vector) {
-	return vector * 4;
-}
-
-void drawTriangles(TGAImage &image) {
-	Vec2i t0[3] = { scaleVector(Vec2i(10, 70)),   scaleVector(Vec2i(50, 160)),  scaleVector(Vec2i(70, 80)) }; 
-	Vec2i t1[3] = { scaleVector(Vec2i(180, 50)),  scaleVector(Vec2i(150, 1)),   scaleVector(Vec2i(70, 180)) }; 
-	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
-	// Vec2i t3[3] = { scaleVector(Vec2i(10, 10)), scaleVector(Vec2i(100, 30)), scaleVector(Vec2i(190, 160)) }; 
-	drawTriangle(t0, image, COLOR_RED); 
-	drawTriangle(t1, image, COLOR_GREEN); 
-	drawTriangle(t2, image, COLOR_WHITE);
-	// drawTriangle(t3, image, blue);
-}
 
 void drawObjModel(TGAImage &image) {
 	for (int i=0; i < model->nfaces(); i++) {
@@ -241,7 +215,7 @@ void drawObjModel(TGAImage &image) {
 			int y0 = (v0.y + 1.) * HEIGHT/2.;
 			int x1 = (v1.x + 1.) * WIDTH/2.;
 			int y1 = (v1.y + 1.) * HEIGHT/2.;
-			line(x0, y0, x1, y1, image, COLOR_WHITE);
+			drawLine(x0, y0, x1, y1, image, COLOR_WHITE);
 		}
 	}
 }
@@ -267,24 +241,10 @@ void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 			normalVector.normalize(); 
 			float intensity = normalVector * lightDirection; 
 			if (intensity > 0) { 
-				drawTriangleZBuffer(trianglePoints, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
+				drawTriangleWithZBuffer(trianglePoints, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
 			} 
 		} else {
-			drawTriangleZBuffer(trianglePoints, zBuffer, image, COLOR_RANDOM);
-		}
-	}
-}
-
-void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int yBuffer[]) {
-	if (p0.x>p1.x) {
-		std::swap(p0, p1);
-	}
-	for (int x=p0.x; x<=p1.x; x++) {
-		float t = (x-p0.x)/(float)(p1.x-p0.x);
-		int y = p0.y*(1.-t) + p1.y*t;
-		if (yBuffer[x]<y) {
-			yBuffer[x] = y;
-			image.set(x, 0, color);
+			drawTriangleWithZBuffer(trianglePoints, zBuffer, image, COLOR_RANDOM);
 		}
 	}
 }
