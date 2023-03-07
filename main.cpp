@@ -21,6 +21,7 @@ const int HEIGHT = 800;
 
 float *zBuffer = new float[WIDTH * HEIGHT];
 Model *model = NULL;
+TGAImage modelDiffuseTexture();
 Vec3f lightDirection(0,0,-1);
 Vec2i clamp(WIDTH - 1, HEIGHT - 1); 
 
@@ -168,7 +169,7 @@ void setScreenBoundaries(Vec3f *pts, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &i
 	} 
 }
 
-void drawTriangleWithZBuffer(Vec3f *pts, float *zbuffer, TGAImage &image, TGAColor color) { 	
+void drawTriangleWithZBuffer(Vec3f *pts, int *textureCoords, float *zbuffer, TGAImage &image, TGAColor color) { 	
 	Vec2i* bboxMin = new Vec2i();
 	Vec2i* bboxMax = new Vec2i();
 	setScreenBoundaries(pts, bboxMin, bboxMax, image );
@@ -205,12 +206,16 @@ void drawTriangleWithZBuffer(Vec3f *pts, float *zbuffer, TGAImage &image, TGACol
 	delete bboxMin;
 } 
 
-void drawObjModel(TGAImage &image) {
+void drawWireframeObjModel(TGAImage &image) {
 	for (int i=0; i < model->nfaces(); i++) {
-		std::vector<int> face = model->face(i);
+		std::vector<std::vector<int>> face = model->face(i);
 		for (int j=0; j < face.size(); j++) {
- 			Vec3f v0 = model->vert(face[j]);
-			Vec3f v1 = model->vert(face[(j+1)%face.size()]);
+			std::vector<int> faceVertexOrigin = face[j];
+ 			Vec3f v0 = model->vert(faceVertexOrigin[0]);
+
+			std::vector<int> faceVertexEnd = face[(j+1)%3];
+			Vec3f v1 = model->vert(faceVertexEnd[0]);
+			
 			int x0 = (v0.x + 1.) * WIDTH/2.;
 			int y0 = (v0.y + 1.) * HEIGHT/2.;
 			int x1 = (v1.x + 1.) * WIDTH/2.;
@@ -222,11 +227,13 @@ void drawObjModel(TGAImage &image) {
 
 void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 	for (int i=0; i < model->nfaces(); i++) {
-		std::vector<int> face = model->face(i);
+		std::vector<std::vector<int>> face = model->face(i);
 		Vec3f trianglePoints[3] = {};
-		Vec3f worldCoords[3]; 
+		Vec3f worldCoords[3];
+		int textureCoords[3];
 		for (int j=0; j < 3; j++) {
-			Vec3f vertex = model->vert(face[j]);
+			std::vector<int> faceVertex = face[j];
+			Vec3f vertex = model->vert(faceVertex[0]);
 
 			int x0 = (vertex.x + 1.) * WIDTH / 2.;
 			int y0 = (vertex.y + 1.) * HEIGHT / 2.;
@@ -234,17 +241,18 @@ void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 
 			trianglePoints[j] = Vec3f(x0,y0, z0);
 
-			worldCoords[j]  = vertex; 
+			worldCoords[j]  = vertex;
+			textureCoords[j] = faceVertex[1];
 		}
 		if (enableLight) {
 			Vec3f normalVector = (worldCoords[2]-worldCoords[0])^(worldCoords[1]-worldCoords[0]); 
 			normalVector.normalize(); 
 			float intensity = normalVector * lightDirection; 
 			if (intensity > 0) { 
-				drawTriangleWithZBuffer(trianglePoints, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
+				drawTriangleWithZBuffer(trianglePoints, textureCoords, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
 			} 
 		} else {
-			drawTriangleWithZBuffer(trianglePoints, zBuffer, image, COLOR_RANDOM);
+			// drawTriangleWithZBuffer(trianglePoints, zBuffer, image, COLOR_RANDOM);
 		}
 	}
 }
@@ -272,11 +280,11 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-
+	// modelDiffuseTexture.read_tga_file();
 	
 	// drawTriangles(image);
 	drawObjModelWithColors(image, true);
-	// drawObjModel(image);
+	// drawWireframeObjModel(image);
 
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image

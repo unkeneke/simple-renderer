@@ -29,13 +29,16 @@ Model::Model(const char *filename) : verts_(), faces_() {
             }
             vertTextures_.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
-            std::vector<int> f;
+            std::vector<std::vector<int>> f;
             int idx, idy, idz;
             char ctrash;
             iss >> ctrash;
             while (iss >> idx >> ctrash >> idy >> ctrash >> idz) {
-                idx--; // in wavefront obj all indices start at 1, not zero
-                f.push_back(idx);
+                // idx--; // in wavefront obj all indices start at 1, not zero
+                // idy--;
+                // idz--;
+                std::vector<int> faceVertex{ --idx, --idy, --idz };
+                f.push_back(faceVertex);
             }
             faces_.push_back(f);
         }
@@ -58,7 +61,7 @@ int Model::nfaces() {
     return (int)faces_.size();
 }
 
-std::vector<int> Model::face(int idx) {
+std::vector<std::vector<int>> Model::face(int idx) {
     return faces_[idx];
 }
 
