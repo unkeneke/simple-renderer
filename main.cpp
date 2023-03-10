@@ -6,6 +6,7 @@
 #include "geometry.h"
 #include <shlwapi.h>
 #include <vector>
+#include "util.h"
 
 
 const TGAColor COLOR_WHITE = TGAColor(255, 255, 255, 255);
@@ -18,6 +19,8 @@ const TGAColor COLOR_RANDOM = TGAColor(-2, 0,   0,   255);
 
 const int WIDTH  = 800;
 const int HEIGHT = 800;
+
+const std::wstring OUTPUT_TGA_NAME = L"output.tga";
 
 float *zBuffer = new float[WIDTH * HEIGHT];
 Model *model = NULL;
@@ -261,7 +264,7 @@ void openTGAOutput() {
 	SHELLEXECUTEINFOW ShExecInfo = {};
 	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
 	ShExecInfo.lpVerb = L"edit";
-	ShExecInfo.lpFile = L"D:/_DEV/tinyrenderer/simplerenderer/output.tga";
+	ShExecInfo.lpFile = OUTPUT_TGA_NAME.c_str();
 	ShExecInfo.nShow = SW_MAXIMIZE;
 	ShExecInfo.fMask = SEE_MASK_NOASYNC;
 
@@ -280,7 +283,8 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-	// modelDiffuseTexture.read_tga_file();
+	TGAImage* modelDiffuse = new TGAImage();
+	modelDiffuse->read_tga_file("obj/head_diffuse.tga");
 	
 	// drawTriangles(image);
 	drawObjModelWithColors(image, true);
@@ -288,8 +292,11 @@ int main(int argc, char** argv) {
 
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
-	image.write_tga_file("output.tga");
+	char* outputFileName = new char();
+	Util::convertWStringToCharPtr(OUTPUT_TGA_NAME, outputFileName);
+	image.write_tga_file(outputFileName);
 	delete model;
+	delete outputFileName;
 
 	openTGAOutput();
 	
