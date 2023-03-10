@@ -4,7 +4,7 @@
 class Util {
 
 public:
-	static void convertWStringToCharPtr(_In_ std::wstring input, _Out_ char * outputString); 
+	static char* convertWStringToCharPtr(_In_ std::wstring input); 
 };
 
 #endif //__UTIL_H__

@@ -255,8 +255,8 @@ void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 				drawTriangleWithZBuffer(trianglePoints, textureCoords, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
 			} 
 		} else {
-			// drawTriangleWithZBuffer(trianglePoints, zBuffer, image, COLOR_RANDOM);
-		}
+			drawTriangleWithZBuffer(trianglePoints, textureCoords, zBuffer, image, COLOR_RANDOM);
+		} 
 	}
 }
 
@@ -264,7 +264,7 @@ void openTGAOutput() {
 	SHELLEXECUTEINFOW ShExecInfo = {};
 	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
 	ShExecInfo.lpVerb = L"edit";
-	ShExecInfo.lpFile = OUTPUT_TGA_NAME.c_str();
+	ShExecInfo.lpFile = L"output.tga";
 	ShExecInfo.nShow = SW_MAXIMIZE;
 	ShExecInfo.fMask = SEE_MASK_NOASYNC;
 
@@ -283,18 +283,19 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-	TGAImage* modelDiffuse = new TGAImage();
-	modelDiffuse->read_tga_file("obj/head_diffuse.tga");
+	TGAImage* modelDiffuseTexture = new TGAImage();
+	modelDiffuseTexture->read_tga_file("obj/head_diffuse.tga");
+
 	
 	// drawTriangles(image);
-	drawObjModelWithColors(image, true);
+	drawObjModelWithColors(image, false);
 	// drawWireframeObjModel(image);
 
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
-	char* outputFileName = new char();
-	Util::convertWStringToCharPtr(OUTPUT_TGA_NAME, outputFileName);
+	char* outputFileName = Util::convertWStringToCharPtr(OUTPUT_TGA_NAME);
 	image.write_tga_file(outputFileName);
+	
 	delete model;
 	delete outputFileName;
 
