@@ -12,12 +12,12 @@ private:
 public:
 	Model(const char *filename);
 	~Model();
-	int nverts();
-	int nfaces();
-	int nvertTextures();
-	Vec3f vert(int i);
-	std::vector<std::vector<int>> face(int idx);
-	Vec3f vertTexture(int i);
+	int totalVertex();
+	int totalFaces();
+	int totalTextureVertex();
+	Vec3f getVertexByIndex(int i);
+	std::vector<std::vector<int>> getFaceByIndex(int idx);
+	Vec3f getTextureVertexByIndex(int i);
 };
 
 #endif //__MODEL_H__

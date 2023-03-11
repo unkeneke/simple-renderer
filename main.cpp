@@ -16,6 +16,7 @@ const TGAColor COLOR_BLUE   = TGAColor(0, 0,   255,   255);
 const TGAColor COLOR_PURPLE   = TGAColor(255, 0,   255,   255);
 const TGAColor COLOR_BACKGROUND_GRADIENT = TGAColor(-1, 0,   0,   255);
 const TGAColor COLOR_RANDOM = TGAColor(-2, 0,   0,   255);
+const TGAColor COLOR_TEXTURE = TGAColor(-3, 0,   0,   255);
 
 const int WIDTH  = 800;
 const int HEIGHT = 800;
@@ -24,7 +25,7 @@ const std::wstring OUTPUT_TGA_NAME = L"output.tga";
 
 float *zBuffer = new float[WIDTH * HEIGHT];
 Model *model = NULL;
-TGAImage modelDiffuseTexture();
+TGAImage *modelDiffuseTexture =  new TGAImage();
 Vec3f lightDirection(0,0,-1);
 Vec2i clamp(WIDTH - 1, HEIGHT - 1); 
 
@@ -139,18 +140,6 @@ void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color,
 	}
 }
 
-Vec3f getBarycentricVector(Vec3f *pts, Vec3f P) {
-	// (ACx, ABx, PAx) x (ACy, ABy, PAy) 
-	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
-	// pts and P has integer value as coordinates
-	// so abs(u[2]) < 1 means u[2] is 0, that means
-	// triangle is degenerate, in this case return something with negative coordinates
-	if (std::abs(u.z)<1) {
-		return Vec3f(-1,1,1);
-	}
-	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
-}
-
 Vec2f normalizePixel(Vec3f* pixel) {
 	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
 	float x = (pixel->x - 1.) / (WIDTH - 1.);
@@ -158,66 +147,15 @@ Vec2f normalizePixel(Vec3f* pixel) {
 	return Vec2f(x,y);
 }
 
-void setScreenBoundaries(Vec3f *pts, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
-	bboxMin->u = image.get_width()-1;
-	bboxMin->v =  image.get_height()-1; 
-	bboxMax->u = 0;
-	bboxMax->v = 0;
-	for (int i=0; i<3; i++) { 
-		bboxMin->x = std::max<int>(0, std::min<int>(bboxMin->x, pts[i].x));
-		bboxMin->y = std::max<int>(0, std::min<int>(bboxMin->y, pts[i].y));
-
-		bboxMax->x = std::min<int>(clamp.x, std::max<int>(bboxMax->x, pts[i].x));
-		bboxMax->y = std::min<int>(clamp.y, std::max<int>(bboxMax->y, pts[i].y));
-	} 
-}
-
-void drawTriangleWithZBuffer(Vec3f *pts, int *textureCoords, float *zbuffer, TGAImage &image, TGAColor color) { 	
-	Vec2i* bboxMin = new Vec2i();
-	Vec2i* bboxMax = new Vec2i();
-	setScreenBoundaries(pts, bboxMin, bboxMax, image );
-	
-	Vec3f P;
-	
-	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
-
-	for (P.x = bboxMin->x; P.x <= bboxMax->x; P.x++) { 
-		for (P.y = bboxMin->y; P.y <= bboxMax->y; P.y++) {
-			Vec3f barycentricScreen  = getBarycentricVector(pts, P); 
-			if (barycentricScreen.x < 0 || barycentricScreen.y < 0 || barycentricScreen.z < 0) {
-				continue;
-			}
-			P.z = 0;
-			P.z += pts[0].z * barycentricScreen.x;
-			P.z += pts[1].z * barycentricScreen.y;
-			P.z += pts[2].z * barycentricScreen.z;
-			if (zbuffer[int(P.x + P.y * WIDTH)] < P.z) {
-				zbuffer[int(P.x + P.y * WIDTH)] = P.z;
-				if (color == COLOR_BACKGROUND_GRADIENT) {
-					Vec2f color = normalizePixel(&P);
-					image.set(P.x, P.y, TGAColor(255 * color.x, 255 * color.y,   0,   255));
-				} else if (color == COLOR_RANDOM) {
-					image.set(P.x, P.y, randomColor);
-				} else {
-					image.set(P.x, P.y, color);
-				}
-			}
-		} 
-	}
-
-	delete bboxMax;
-	delete bboxMin;
-} 
-
 void drawWireframeObjModel(TGAImage &image) {
-	for (int i=0; i < model->nfaces(); i++) {
-		std::vector<std::vector<int>> face = model->face(i);
+	for (int i=0; i < model->totalFaces(); i++) {
+		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		for (int j=0; j < face.size(); j++) {
 			std::vector<int> faceVertexOrigin = face[j];
- 			Vec3f v0 = model->vert(faceVertexOrigin[0]);
+			Vec3f v0 = model->getVertexByIndex(faceVertexOrigin[0]);
 
 			std::vector<int> faceVertexEnd = face[(j+1)%3];
-			Vec3f v1 = model->vert(faceVertexEnd[0]);
+			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
 			
 			int x0 = (v0.x + 1.) * WIDTH/2.;
 			int y0 = (v0.y + 1.) * HEIGHT/2.;
@@ -228,16 +166,112 @@ void drawWireframeObjModel(TGAImage &image) {
 	}
 }
 
-void drawObjModelWithColors(TGAImage &image, bool enableLight) {
-	for (int i=0; i < model->nfaces(); i++) {
-		std::vector<std::vector<int>> face = model->face(i);
+Vec3f getBarycentricVector(Vec3f *pts, Vec3f P) {
+	// (ACx, ABx, PAx) x (ACy, ABy, PAy) should give us the normal vector, with a z value equal to 1
+	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
+	// pts and P has integer value as coordinates
+	// so abs(u[2]) < 1 means u[2] is 0, that means
+	// triangle is degenerate, in this case return something with negative coordinates
+	if (std::abs(u.z)<1) {
+		return Vec3f(-1,1,1);
+	}
+	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
+}
+
+void setScreenBoundaries(Vec3f *trianglePoints, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
+	bboxMin->u = image.get_width()-1;
+	bboxMin->v =  image.get_height()-1; 
+	bboxMax->u = 0;
+	bboxMax->v = 0;
+	for (int i=0; i<3; i++) { 
+		bboxMin->x = std::max<int>(0, std::min<int>(bboxMin->x, trianglePoints[i].x));
+		bboxMin->y = std::max<int>(0, std::min<int>(bboxMin->y, trianglePoints[i].y));
+
+		bboxMax->x = std::min<int>(clamp.x, std::max<int>(bboxMax->x, trianglePoints[i].x));
+		bboxMax->y = std::min<int>(clamp.y, std::max<int>(bboxMax->y, trianglePoints[i].y));
+	} 
+}
+
+void drawTriangleWithZBuffer(Vec3f *trianglePoints, TGAImage* diffuseTexture, int *textureCoords, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
+	Vec2i* bboxMin = new Vec2i();
+	Vec2i* bboxMax = new Vec2i();
+	setScreenBoundaries(trianglePoints, bboxMin, bboxMax, image );
+	
+	Vec3f P;
+	
+	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
+
+	for (P.x = bboxMin->x; P.x <= bboxMax->x; P.x++) { 
+		for (P.y = bboxMin->y; P.y <= bboxMax->y; P.y++) {
+			Vec3f barycentricScreen  = getBarycentricVector(trianglePoints, P); 
+			if (barycentricScreen.x < 0 || barycentricScreen.y < 0 || barycentricScreen.z < 0) {
+				// Barycentric point is out of the triangle's area, so not a valid coordinate
+				continue;
+			}
+			P.z = 0;
+			P.z += trianglePoints[0].z * barycentricScreen.x;
+			P.z += trianglePoints[1].z * barycentricScreen.y;
+			P.z += trianglePoints[2].z * barycentricScreen.z;
+			if (zbuffer[int(P.x + P.y * WIDTH)] < P.z) {
+				zbuffer[int(P.x + P.y * WIDTH)] = P.z;
+				if (color == COLOR_BACKGROUND_GRADIENT) {
+					Vec2f normalizedPixel = normalizePixel(&P);
+					image.set(P.x, P.y, TGAColor(255 * normalizedPixel.x, 255 * normalizedPixel.y,   0,   255));
+				} else if (color == COLOR_RANDOM) {
+					image.set(P.x, P.y, randomColor);
+				} else if (color == COLOR_TEXTURE) {
+					// Interpolate textureCoords through diffuseTexture and this triangle
+
+					Vec3f coord0 = model->getTextureVertexByIndex(textureCoords[0]);// int coord0 = textureCoords[0];
+					Vec3f coord1 = model->getTextureVertexByIndex(textureCoords[1]);// int coord1 = textureCoords[1];
+					Vec3f coord2 = model->getTextureVertexByIndex(textureCoords[2]);// int coord2 = textureCoords[2];
+					
+					//
+					float factorY = (P.y - (float)bboxMin->y)/(float)(bboxMax->y - bboxMin->y);
+					
+					if (coord0.y > coord1.y) std::swap(coord0, coord1); 
+					if (coord0.y > coord2.y) std::swap(coord0, coord2); 
+					if (coord1.y > coord2.y) std::swap(coord1, coord2);
+					
+					Vec3f resultY = Util::Interpolate3Vectors(coord0, coord1, coord2, factorY);
+					
+					// const float normalizedY = resultY.y;
+
+					const float normalizedX = P.x * 100. / WIDTH;
+					const float normalizedY = P.y * 100. / HEIGHT;
+					
+					TGAColor sectionColor = diffuseTexture->get((float)diffuseTexture->get_width() * resultY.x, (float)diffuseTexture->get_height() *  resultY.y);
+					
+					image.set(P.x, P.y, sectionColor * intensity);
+
+					// image.set(P.x, P.y, COLOR_WHITE * intensity);
+				} else {
+					image.set(P.x, P.y, color * intensity);
+				}
+			}
+		} 
+	}
+
+	delete bboxMax;
+	delete bboxMin;
+} 
+
+void drawObjModel(TGAImage &image, TGAImage* diffuseTexture, bool enableLight, bool onlyWireframe) {
+	if (onlyWireframe) {
+		drawWireframeObjModel(image);
+		return;
+	} 
+	
+	for (int i=0; i < model->totalFaces(); i++) {
+		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		Vec3f trianglePoints[3] = {};
 		Vec3f worldCoords[3];
 		int textureCoords[3];
 		for (int j=0; j < 3; j++) {
 			std::vector<int> faceVertex = face[j];
-			Vec3f vertex = model->vert(faceVertex[0]);
+			Vec3f vertex = model->getVertexByIndex(faceVertex[0]);
 
+			// Scaling the x and y of each vertex to the size of the screen/image
 			int x0 = (vertex.x + 1.) * WIDTH / 2.;
 			int y0 = (vertex.y + 1.) * HEIGHT / 2.;
 			int z0 = 0;
@@ -245,17 +279,18 @@ void drawObjModelWithColors(TGAImage &image, bool enableLight) {
 			trianglePoints[j] = Vec3f(x0,y0, z0);
 
 			worldCoords[j]  = vertex;
-			textureCoords[j] = faceVertex[1];
+			textureCoords[j] = (faceVertex[1]);
 		}
+
 		if (enableLight) {
 			Vec3f normalVector = (worldCoords[2]-worldCoords[0])^(worldCoords[1]-worldCoords[0]); 
 			normalVector.normalize(); 
 			float intensity = normalVector * lightDirection; 
 			if (intensity > 0) { 
-				drawTriangleWithZBuffer(trianglePoints, textureCoords, zBuffer, image, TGAColor(intensity * 255, intensity * 255, intensity * 255, 255)); 
+				drawTriangleWithZBuffer(trianglePoints, diffuseTexture, textureCoords, zBuffer, image, intensity, COLOR_TEXTURE); 
 			} 
 		} else {
-			drawTriangleWithZBuffer(trianglePoints, textureCoords, zBuffer, image, COLOR_RANDOM);
+			drawTriangleWithZBuffer(trianglePoints, diffuseTexture, textureCoords, zBuffer, image, 1., COLOR_RANDOM);
 		} 
 	}
 }
@@ -264,7 +299,7 @@ void openTGAOutput() {
 	SHELLEXECUTEINFOW ShExecInfo = {};
 	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFOW);
 	ShExecInfo.lpVerb = L"edit";
-	ShExecInfo.lpFile = L"output.tga";
+	ShExecInfo.lpFile = OUTPUT_TGA_NAME.c_str();
 	ShExecInfo.nShow = SW_MAXIMIZE;
 	ShExecInfo.fMask = SEE_MASK_NOASYNC;
 
@@ -283,14 +318,13 @@ int main(int argc, char** argv) {
 	}
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
-	TGAImage* modelDiffuseTexture = new TGAImage();
+
 	modelDiffuseTexture->read_tga_file("obj/head_diffuse.tga");
 
 	
 	// drawTriangles(image);
-	drawObjModelWithColors(image, false);
-	// drawWireframeObjModel(image);
-
+	drawObjModel(image, modelDiffuseTexture, true, false);
+	
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
 	char* outputFileName = Util::convertWStringToCharPtr(OUTPUT_TGA_NAME);
@@ -298,6 +332,7 @@ int main(int argc, char** argv) {
 	
 	delete model;
 	delete outputFileName;
+	delete modelDiffuseTexture;
 
 	openTGAOutput();
 	

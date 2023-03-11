@@ -49,27 +49,27 @@ Model::Model(const char *filename) : verts_(), faces_() {
 Model::~Model() {
 }
 
-int Model::nverts() {
+int Model::totalVertex() {
     return (int)verts_.size();
 }
 
-int Model::nvertTextures() {
+int Model::totalTextureVertex() {
     return (int)vertTextures_.size();
 }
 
-int Model::nfaces() {
+int Model::totalFaces() {
     return (int)faces_.size();
 }
 
-std::vector<std::vector<int>> Model::face(int idx) {
+std::vector<std::vector<int>> Model::getFaceByIndex(int idx) {
     return faces_[idx];
 }
 
-Vec3f Model::vert(int i) {
+Vec3f Model::getVertexByIndex(int i) {
     return verts_[i];
 }
 
-Vec3f Model::vertTexture(int i) {
+Vec3f Model::getTextureVertexByIndex(int i) {
     return vertTextures_[i];
 }
 
