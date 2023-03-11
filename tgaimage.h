@@ -59,7 +59,7 @@ struct TGAColor {
 	}
 
 	TGAColor operator *(const float intensity) const {
-		return TGAColor(b * intensity, g * intensity, r * intensity, a);
+		return TGAColor((float)r * intensity, (float)g * intensity, (float)b * intensity, a);
 	}
 
 	bool operator ==(const TGAColor &c) {

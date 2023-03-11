@@ -220,31 +220,42 @@ void drawTriangleWithZBuffer(Vec3f *trianglePoints, TGAImage* diffuseTexture, in
 				} else if (color == COLOR_RANDOM) {
 					image.set(P.x, P.y, randomColor);
 				} else if (color == COLOR_TEXTURE) {
-					// Interpolate textureCoords through diffuseTexture and this triangle
-
-					Vec3f coord0 = model->getTextureVertexByIndex(textureCoords[0]);// int coord0 = textureCoords[0];
-					Vec3f coord1 = model->getTextureVertexByIndex(textureCoords[1]);// int coord1 = textureCoords[1];
-					Vec3f coord2 = model->getTextureVertexByIndex(textureCoords[2]);// int coord2 = textureCoords[2];
+					if (diffuseTexture == nullptr) {
+						image.set(P.x, P.y, COLOR_WHITE * intensity);
+						continue;
+					}
 					
-					//
+					// Interpolate textureCoords through diffuseTexture and this triangle
+					Vec3f textureCoord0 = model->getTextureVertexByIndex(textureCoords[0]);
+					Vec3f textureCoord1 = model->getTextureVertexByIndex(textureCoords[1]);
+					Vec3f textureCoord2 = model->getTextureVertexByIndex(textureCoords[2]);
+
+					float factorX = (P.x - (float)bboxMin->x)/(float)(bboxMax->x - bboxMin->x);
 					float factorY = (P.y - (float)bboxMin->y)/(float)(bboxMax->y - bboxMin->y);
 					
-					if (coord0.y > coord1.y) std::swap(coord0, coord1); 
-					if (coord0.y > coord2.y) std::swap(coord0, coord2); 
-					if (coord1.y > coord2.y) std::swap(coord1, coord2);
-					
-					Vec3f resultY = Util::Interpolate3Vectors(coord0, coord1, coord2, factorY);
-					
-					// const float normalizedY = resultY.y;
 
-					const float normalizedX = P.x * 100. / WIDTH;
-					const float normalizedY = P.y * 100. / HEIGHT;
+
+
 					
-					TGAColor sectionColor = diffuseTexture->get((float)diffuseTexture->get_width() * resultY.x, (float)diffuseTexture->get_height() *  resultY.y);
+					if (textureCoord0.y > textureCoord1.y) std::swap(textureCoord0, textureCoord1); 
+					if (textureCoord0.y > textureCoord2.y) std::swap(textureCoord0, textureCoord2); 
+					if (textureCoord1.y > textureCoord2.y) std::swap(textureCoord1, textureCoord2);
+					
+					Vec3f resultY = Util::lerp(textureCoord0, textureCoord2, factorY);
+					
+					if (textureCoord0.x > textureCoord1.x) std::swap(textureCoord0, textureCoord1); 
+					if (textureCoord0.x > textureCoord2.x) std::swap(textureCoord0, textureCoord2); 
+					if (textureCoord1.x > textureCoord2.x) std::swap(textureCoord1, textureCoord2);
+					
+					Vec3f resultX = Util::lerp(textureCoord0, textureCoord2, factorX);
+					
+
+					TGAColor sectionColor = diffuseTexture->get(
+						(float)diffuseTexture->get_width() * resultX.x,
+						(float)diffuseTexture->get_height() *  resultY.y
+					);
 					
 					image.set(P.x, P.y, sectionColor * intensity);
-
-					// image.set(P.x, P.y, COLOR_WHITE * intensity);
 				} else {
 					image.set(P.x, P.y, color * intensity);
 				}
@@ -320,6 +331,7 @@ int main(int argc, char** argv) {
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
 
 	modelDiffuseTexture->read_tga_file("obj/head_diffuse.tga");
+	modelDiffuseTexture->flip_vertically();
 
 	
 	// drawTriangles(image);
