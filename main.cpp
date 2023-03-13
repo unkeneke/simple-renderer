@@ -83,28 +83,20 @@ void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, T
 	if (t0.y>t2.y) std::swap(t0, t2); 
 	if (t1.y>t2.y) std::swap(t1, t2);
 
-	int totalHeight = t2.y-t0.y; 
-	for (int y=t0.y; y<=t1.y; y++) { 
-		int segmentHeight = t1.y-t0.y+1; 
-		float alpha = (float)(y-t0.y)/totalHeight; 
-		float beta  = (float)(y-t0.y)/segmentHeight; // be careful with divisions by zero 
-		Vec2i A = t0 + (t2-t0)*alpha; 
-		Vec2i B = t0 + (t1-t0)*beta; 
-		if (A.x>B.x) std::swap(A, B); 
+	int totalHeight = t2.y - t0.y;
+	
+	for (int i = 0; i < totalHeight; i++) { 
+		bool secondHalf = i>t1.y-t0.y || t1.y==t0.y; 
+		int segmentHeight = secondHalf ? t2.y-t1.y : t1.y-t0.y; 
+		float alpha = (float)i/totalHeight; 
+		float beta = (float)(i-(secondHalf ? t1.y-t0.y : 0)) / segmentHeight;
+		Vec2i A = t0 + (t2-t0) * alpha; 
+		Vec2i B = secondHalf ? t1 + (t2-t1)*beta : t0 + (t1-t0)*beta; 
+		if (A.x>B.x) {
+			std::swap(A, B);
+		}
 		for (int j=A.x; j<=B.x; j++) { 
-			image.set(j, y, color); // attention, due to int casts t0.y+i != A.y 
-		} 
-	}
-	// Both loops need to be refactored into a single call
-	for (int y=t1.y; y<=t2.y; y++) { 
-		int segmentHeight = t2.y-t1.y+1; 
-		float alpha = (float)(y-t0.y)/totalHeight; 
-		float beta  = (float)(y-t1.y)/segmentHeight; // be careful with divisions by zero 
-		Vec2i A = t0 + (t2-t0)*alpha; 
-		Vec2i B = t1 + (t2-t1)*beta; 
-		if (A.x>B.x) std::swap(A, B); 
-		for (int j=A.x; j<=B.x; j++) { 
-			image.set(j, y, color); // attention, due to int casts t0.y+i != A.y 
+			image.set(j, t0.y+i, color);
 		} 
 	} 
 }
@@ -233,8 +225,21 @@ void drawTriangleWithZBuffer(Vec3f *trianglePoints, TGAImage* diffuseTexture, in
 					float factorX = (P.x - (float)bboxMin->x)/(float)(bboxMax->x - bboxMin->x);
 					float factorY = (P.y - (float)bboxMin->y)/(float)(bboxMax->y - bboxMin->y);
 					
-
-
+					// int totalHeight = t2.y - t0.y;
+					// for (int i = 0; i < totalHeight; i++) { 
+					// 	bool secondHalf = i>t1.y-t0.y || t1.y==t0.y; 
+					// 	int segmentHeight = secondHalf ? t2.y-t1.y : t1.y-t0.y; 
+					// 	float alpha = (float)i/totalHeight; 
+					// 	float beta = (float)(i-(secondHalf ? t1.y-t0.y : 0))/segmentHeight;
+					// 	Vec2i A = t0 + (t2-t0) * alpha; 
+					// 	Vec2i B = secondHalf ? t1 + (t2-t1)*beta : t0 + (t1-t0)*beta; 
+					// 	if (A.x>B.x) {
+					// 		std::swap(A, B);
+					// 	}
+					// 	for (int j=A.x; j<=B.x; j++) { 
+					// 		image.set(j, t0.y+i, color);
+					// 	} 
+					// } 
 
 					
 					if (textureCoord0.y > textureCoord1.y) std::swap(textureCoord0, textureCoord1); 
@@ -242,12 +247,14 @@ void drawTriangleWithZBuffer(Vec3f *trianglePoints, TGAImage* diffuseTexture, in
 					if (textureCoord1.y > textureCoord2.y) std::swap(textureCoord1, textureCoord2);
 					
 					Vec3f resultY = Util::lerp(textureCoord0, textureCoord2, factorY);
+					// resultY = Util::lerp(resultY, textureCoord2, factorY);
 					
 					if (textureCoord0.x > textureCoord1.x) std::swap(textureCoord0, textureCoord1); 
 					if (textureCoord0.x > textureCoord2.x) std::swap(textureCoord0, textureCoord2); 
 					if (textureCoord1.x > textureCoord2.x) std::swap(textureCoord1, textureCoord2);
 					
 					Vec3f resultX = Util::lerp(textureCoord0, textureCoord2, factorX);
+					// resultX = Util::lerp(resultX, textureCoord2, factorX);
 					
 
 					TGAColor sectionColor = diffuseTexture->get(
@@ -290,7 +297,7 @@ void drawObjModel(TGAImage &image, TGAImage* diffuseTexture, bool enableLight, b
 			trianglePoints[j] = Vec3f(x0,y0, z0);
 
 			worldCoords[j]  = vertex;
-			textureCoords[j] = (faceVertex[1]);
+			textureCoords[j] = faceVertex[1];
 		}
 
 		if (enableLight) {
@@ -334,7 +341,7 @@ int main(int argc, char** argv) {
 	modelDiffuseTexture->flip_vertically();
 
 	
-	// drawTriangles(image);
+	// drawTriangleExamples(image);
 	drawObjModel(image, modelDiffuseTexture, true, false);
 	
 	
