@@ -31,6 +31,19 @@ Vec3f Util::interpolateVectors(const Vec3f& a, const Vec3f& b, const Vec3f& c, f
     return interpolatedPoint;
 }
 
+Vec3f Util::interpolatePoint(Vec3f *trianglePoints, const Vec3f& p) {
+    // calculate barycentric coordinates
+    double alpha = ((trianglePoints[1].y - trianglePoints[2].y)*(p.x - trianglePoints[2].x) + (trianglePoints[2].x - trianglePoints[1].x)*(p.y - trianglePoints[2].y)) / ((trianglePoints[1].y - trianglePoints[2].y)*(trianglePoints[0].x - trianglePoints[2].x) + (trianglePoints[2].x - trianglePoints[1].x)*(trianglePoints[0].y - trianglePoints[2].y));
+    double beta = ((trianglePoints[2].y - trianglePoints[0].y)*(p.x - trianglePoints[2].x) + (trianglePoints[0].x - trianglePoints[2].x)*(p.y - trianglePoints[2].y)) / ((trianglePoints[1].y - trianglePoints[2].y)*(trianglePoints[0].x - trianglePoints[2].x) + (trianglePoints[2].x - trianglePoints[1].x)*(trianglePoints[0].y - trianglePoints[2].y));
+    double gamma = 1.0 - alpha - beta;
+    
+    // interpolate point using barycentric coordinates
+    Vec3f result;
+    result.x = alpha * trianglePoints[0].x + beta * trianglePoints[1].x + gamma * trianglePoints[2].x;
+    result.y = alpha * trianglePoints[0].y + beta * trianglePoints[1].y + gamma * trianglePoints[2].y;
+    return result;
+}
+
 
 
 

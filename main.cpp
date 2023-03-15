@@ -139,6 +139,14 @@ Vec2f normalizePixel(Vec3f* pixel) {
 	return Vec2f(x,y);
 }
 
+Vec3f normalizeVector3(Vec3f* pixel, float maxWidth, float maxHeight, float maxDepth, float limit) {
+	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
+	float x = ((pixel->x - 1.) / (maxWidth - 1.)) * limit;
+	float y = ((pixel->y - 1.) / (maxHeight - 1.)) * limit;
+	float z = ((pixel->z - 1.) / (maxDepth - 1.)) * limit;
+	return Vec3f(x, y, z);
+}
+
 void drawWireframeObjModel(TGAImage &image) {
 	for (int i=0; i < model->totalFaces(); i++) {
 		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
@@ -221,48 +229,90 @@ void drawTriangleWithZBuffer(Vec3f *trianglePoints, TGAImage* diffuseTexture, in
 					Vec3f textureCoord0 = model->getTextureVertexByIndex(textureCoords[0]);
 					Vec3f textureCoord1 = model->getTextureVertexByIndex(textureCoords[1]);
 					Vec3f textureCoord2 = model->getTextureVertexByIndex(textureCoords[2]);
-
+					
+					Vec3f textureCoordArray[] = {
+						model->getTextureVertexByIndex(textureCoords[0]),
+						model->getTextureVertexByIndex(textureCoords[1]),
+						model->getTextureVertexByIndex(textureCoords[2])
+					};
+					
 					float factorX = (P.x - (float)bboxMin->x)/(float)(bboxMax->x - bboxMin->x);
 					float factorY = (P.y - (float)bboxMin->y)/(float)(bboxMax->y - bboxMin->y);
-					
-					// int totalHeight = t2.y - t0.y;
-					// for (int i = 0; i < totalHeight; i++) { 
-					// 	bool secondHalf = i>t1.y-t0.y || t1.y==t0.y; 
-					// 	int segmentHeight = secondHalf ? t2.y-t1.y : t1.y-t0.y; 
-					// 	float alpha = (float)i/totalHeight; 
-					// 	float beta = (float)(i-(secondHalf ? t1.y-t0.y : 0))/segmentHeight;
-					// 	Vec2i A = t0 + (t2-t0) * alpha; 
-					// 	Vec2i B = secondHalf ? t1 + (t2-t1)*beta : t0 + (t1-t0)*beta; 
-					// 	if (A.x>B.x) {
-					// 		std::swap(A, B);
-					// 	}
-					// 	for (int j=A.x; j<=B.x; j++) { 
-					// 		image.set(j, t0.y+i, color);
-					// 	} 
-					// } 
 
+
+					
 					
 					if (textureCoord0.y > textureCoord1.y) std::swap(textureCoord0, textureCoord1); 
 					if (textureCoord0.y > textureCoord2.y) std::swap(textureCoord0, textureCoord2); 
 					if (textureCoord1.y > textureCoord2.y) std::swap(textureCoord1, textureCoord2);
 					
 					Vec3f resultY = Util::lerp(textureCoord0, textureCoord2, factorY);
-					// resultY = Util::lerp(resultY, textureCoord2, factorY);
 					
 					if (textureCoord0.x > textureCoord1.x) std::swap(textureCoord0, textureCoord1); 
 					if (textureCoord0.x > textureCoord2.x) std::swap(textureCoord0, textureCoord2); 
 					if (textureCoord1.x > textureCoord2.x) std::swap(textureCoord1, textureCoord2);
 					
 					Vec3f resultX = Util::lerp(textureCoord0, textureCoord2, factorX);
-					// resultX = Util::lerp(resultX, textureCoord2, factorX);
 					
+					
+					Vec3f realResult(resultX.x, resultY.y, 0);
 
+
+
+
+					
+					Vec3f lol = Util::interpolatePoint(textureCoordArray, P);
+					
+					
 					TGAColor sectionColor = diffuseTexture->get(
-						(float)diffuseTexture->get_width() * resultX.x,
-						(float)diffuseTexture->get_height() *  resultY.y
+						// (float)diffuseTexture->get_width() * lol.x,
+						// (float)diffuseTexture->get_height() *  lol.y
+						lol.x,
+						lol.y
 					);
+
+					
 					
 					image.set(P.x, P.y, sectionColor * intensity);
+					
+					// diffuseTexture->set((float)diffuseTexture->get_width() * textureCoord0.x, (float)diffuseTexture->get_height() *  textureCoord0.y, randomColor * 1.);
+					// diffuseTexture->set((float)diffuseTexture->get_width() * textureCoord1.x, (float)diffuseTexture->get_height() *  textureCoord1.y, randomColor * 1.);
+					// diffuseTexture->set((float)diffuseTexture->get_width() * textureCoord2.x, (float)diffuseTexture->get_height() *  textureCoord2.y, randomColor * 1.);
+
+
+
+
+					
+					
+					// Vec3f resultX;
+					// Vec3f resultY;
+					// if (textureCoord0.y > textureCoord1.y) std::swap(textureCoord0, textureCoord1); 
+					// if (textureCoord0.y > textureCoord2.y) std::swap(textureCoord0, textureCoord2); 
+					// if (textureCoord1.y > textureCoord2.y) std::swap(textureCoord1, textureCoord2);
+					// int totalHeight = textureCoord2.y - textureCoord0.y;
+					// for (int i = 0; i < totalHeight; i++) { 
+					// 	bool secondHalf = i>textureCoord1.y-textureCoord0.y || textureCoord1.y==textureCoord0.y; 
+					// 	int segmentHeight = secondHalf ? textureCoord2.y-textureCoord1.y : textureCoord1.y-textureCoord0.y; 
+					// 	float alpha = factorY;//(float)i/totalHeight; 
+					// 	float beta = (float)(i-(secondHalf ? textureCoord1.y-textureCoord0.y : 0))/segmentHeight;
+					// 	resultX = textureCoord0 + (textureCoord2-textureCoord0) * factorX; 
+					// 	resultY = secondHalf ? textureCoord1 + (textureCoord2-textureCoord1)*beta : textureCoord0 + (textureCoord1-textureCoord0)*factorX; 
+					// 	if (resultX.x > resultY.x) {
+					// 		std::swap(resultX, resultY);
+					// 	}
+					// 	// for (int j=A.x; j<=B.x; j++) { 
+					// 	// 	image.set(j, textureCoord0.y+i, color);
+					// 	// }
+					// }
+					// // if (resultX.x >=  resultY.x) {
+					// // 		
+					// // }
+					// TGAColor sectionColor = diffuseTexture->get(
+					// 	(float)diffuseTexture->get_width() * resultX.x,
+					// 	(float)diffuseTexture->get_height() *  resultY.y
+					// );
+					//
+					// image.set(P.x, P.y, sectionColor * intensity);
 				} else {
 					image.set(P.x, P.y, color * intensity);
 				}
@@ -348,6 +398,7 @@ int main(int argc, char** argv) {
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
 	char* outputFileName = Util::convertWStringToCharPtr(OUTPUT_TGA_NAME);
 	image.write_tga_file(outputFileName);
+	// modelDiffuseTexture->write_tga_file(outputFileName);
 	
 	delete model;
 	delete outputFileName;
