@@ -166,16 +166,20 @@ void drawWireframeObjModel(TGAImage &image) {
 	}
 }
 
-Vec3f getBarycentricVector(Vec3f *pts, Vec3f P) {
-	// (ACx, ABx, PAx) x (ACy, ABy, PAy) should give us the normal vector, with a z value equal to 1
-	Vec3f u = Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-P.x)^Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-P.y);
-	// pts and P has integer value as coordinates
-	// so abs(u[2]) < 1 means u[2] is 0, that means
+Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
+	// This calculation comes from a linear system of equations when considering u + v + w = 1 in barycentric coordinate theory
+	// The result is a vector [u, v, 1] that is perpendicular to (ACx, ABx, PAx) and (ACy, ABy, PAy)
+	// (ACx, ABx, PAx) cross product (ACy, ABy, PAy) should give us the normal vector, with a z value that must be 1
+	// if not, P doesn't belong in this triangle 
+	Vec3f barycentricWeight = Vec3f(triangleVertex[2].x-triangleVertex[0].x, triangleVertex[1].x-triangleVertex[0].x, triangleVertex[0].x-P.x)^Vec3f(triangleVertex[2].y-triangleVertex[0].y, triangleVertex[1].y-triangleVertex[0].y, triangleVertex[0].y-P.y);
+
+	// triangleVertex and P has integer value as coordinates
+	// so abs(barycentricWeight[2]) < 1 means barycentricWeight[2] is 0, that means
 	// triangle is degenerate, in this case return something with negative coordinates
-	if (std::abs(u.z)<1) {
+	if (std::abs(barycentricWeight.z)<1) {
 		return Vec3f(-1,1,1);
 	}
-	return Vec3f(1.f-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z); 
+	return Vec3f(1.f-(barycentricWeight.x+barycentricWeight.y)/barycentricWeight.z, barycentricWeight.y/barycentricWeight.z, barycentricWeight.x/barycentricWeight.z); 
 }
 
 void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
@@ -192,7 +196,7 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 	} 
 }
 
-void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
+void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
 	Vec2i* bboxMin = new Vec2i();
 	Vec2i* bboxMax = new Vec2i();
 	setScreenBoundaries(triangleVertex, bboxMin, bboxMax, image );
@@ -203,15 +207,15 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Ve
 
 	for (P.x = bboxMin->x; P.x <= bboxMax->x; P.x++) { 
 		for (P.y = bboxMin->y; P.y <= bboxMax->y; P.y++) {
-			Vec3f barycentricScreen  = getBarycentricVector(triangleVertex, P); 
-			if (barycentricScreen.x < 0 || barycentricScreen.y < 0 || barycentricScreen.z < 0) {
+			Vec3f barycentricPoint  = getBarycentricVector(triangleVertex, P); 
+			if (barycentricPoint.x < 0 || barycentricPoint.y < 0 || barycentricPoint.z < 0) {
 				// Barycentric point is out of the triangle's area, so not a valid coordinate
 				continue;
 			}
 			P.z = 0;
-			P.z += triangleVertex[0].z * barycentricScreen.x;
-			P.z += triangleVertex[1].z * barycentricScreen.y;
-			P.z += triangleVertex[2].z * barycentricScreen.z;
+			P.z += triangleVertex[0].z * barycentricPoint.x;
+			P.z += triangleVertex[1].z * barycentricPoint.y;
+			P.z += triangleVertex[2].z * barycentricPoint.z;
 			if (zbuffer[int(P.x + P.y * WIDTH)] < P.z) {
 				zbuffer[int(P.x + P.y * WIDTH)] = P.z;
 				if (color == COLOR_BACKGROUND_GRADIENT) {
@@ -224,103 +228,17 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Ve
 						image.set(P.x, P.y, COLOR_WHITE * intensity);
 						continue;
 					}
-					
-					// Interpolate textureCoords through diffuseTexture and this triangle
-					// Triangle vertex has been normalized to the output image's size, 800x800
-					// Texture UV are from a file 1024x1024 in size
-					// Distorted vertex has to be interpolated to UV coord
 
-					
-					Vec3f textureCoord0 = uvTextureVertex[0];
-					Vec3f textureCoord1 = uvTextureVertex[1];
-					Vec3f textureCoord2 = uvTextureVertex[2];
-					
-					float factorX = (P.x - (float)bboxMin->x) / (float)(bboxMax->x - bboxMin->x);
-					float factorY = (P.y - (float)bboxMin->y) / (float)(bboxMax->y - bboxMin->y);
-
-
-
-
-
-					
-					if (textureCoord0.y > textureCoord1.y) std::swap(textureCoord0, textureCoord1); 
-					if (textureCoord0.y > textureCoord2.y) std::swap(textureCoord0, textureCoord2); 
-					if (textureCoord1.y > textureCoord2.y) std::swap(textureCoord1, textureCoord2);
-					
-					Vec3f resultY = Util::lerp(textureCoord0, textureCoord2, factorY);
-					
-					if (textureCoord0.x > textureCoord1.x) std::swap(textureCoord0, textureCoord1); 
-					if (textureCoord0.x > textureCoord2.x) std::swap(textureCoord0, textureCoord2); 
-					if (textureCoord1.x > textureCoord2.x) std::swap(textureCoord1, textureCoord2);
-					
-					Vec3f resultX = Util::lerp(textureCoord0, textureCoord2, factorX);
-					
-					Vec3f realResult(resultX.x, resultY.y, 0);
-					float u = (float)diffuseTexture->get_width() * realResult.x;
-					float v = (float)diffuseTexture->get_height() *  realResult.y;
-					
-					
-					Vec3f lol = Util::interpolatePoint(uvTextureVertex, P);
-
-
-
-					// int x0 = (triangleVertex[0].x + 1.) * WIDTH / 2.;
-					if (triangleVertex[0].x < 400 || triangleVertex[1].x < 400 || triangleVertex[2].x <400) {
-						return;
-					}
+					// We use the calculated barycentricPoint from P across the original triangle
+					// And interpolate it through the texture triangle
+					Vec3f interpolatedPoint = uvTextureVertex[0] * barycentricPoint.x + uvTextureVertex[1] * barycentricPoint.y + uvTextureVertex[2] * barycentricPoint.z;
 					
 					TGAColor sectionColor = diffuseTexture->get(
-						u,
-						v
-						// lol.x,
-						// lol.y
+						(float)diffuseTexture->get_width() * interpolatedPoint.x,
+						(float)diffuseTexture->get_height() * interpolatedPoint.y
 					);
 					
 					image.set(P.x, P.y, sectionColor * intensity);
-					
-					// diffuseTexture->set((float)diffuseTexture->get_width() * textureCoord0.x, (float)diffuseTexture->get_height() *  textureCoord0.y, randomColor * 1.);
-					// diffuseTexture->set((float)diffuseTexture->get_width() * textureCoord1.x, (float)diffuseTexture->get_height() *  textureCoord1.y, randomColor * 1.);
-					// diffuseTexture->set((float)diffuseTexture->get_width() * textureCoord2.x, (float)diffuseTexture->get_height() *  textureCoord2.y, randomColor * 1.);
-
-
-
-
-
-
-
-					
-					
-					
-					// Vec3f resultX;
-					// Vec3f resultY;
-					// if (textureCoord0.y > textureCoord1.y) std::swap(textureCoord0, textureCoord1); 
-					// if (textureCoord0.y > textureCoord2.y) std::swap(textureCoord0, textureCoord2); 
-					// if (textureCoord1.y > textureCoord2.y) std::swap(textureCoord1, textureCoord2);
-					//
-					// int totalHeight = textureCoord2.y - textureCoord0.y;
-					// for (int i = 0; i < totalHeight; i++) { 
-					// 	bool secondHalf = i>textureCoord1.y-textureCoord0.y || textureCoord1.y==textureCoord0.y; 
-					// 	int segmentHeight = secondHalf ? textureCoord2.y-textureCoord1.y : textureCoord1.y-textureCoord0.y; 
-					// 	float alpha = (float)i/totalHeight; 
-					// 	float beta = (float)(i-(secondHalf ? textureCoord1.y-textureCoord0.y : 0))/segmentHeight;
-					// 	resultX = textureCoord0 + (textureCoord2-textureCoord0) * alpha; 
-					// 	resultY = secondHalf ? textureCoord1 + (textureCoord2-textureCoord1)*beta : textureCoord0 + (textureCoord1-textureCoord0)*beta; 
-					// 	if (resultX.x > resultY.x) {
-					// 		std::swap(resultX, resultY);
-					// 	}
-					// 	// for (int j=A.x; j<=B.x; j++) { 
-					// 	// 	image.set(j, textureCoord0.y+i, color);
-					// 	// }
-					// }
-					// // if (resultX.x >=  resultY.x) {
-					// // 		
-					// // }
-					// TGAColor sectionColor = diffuseTexture->get(
-					// 	(float)diffuseTexture->get_width() * resultX.x,
-					// 	(float)diffuseTexture->get_height() *  resultY.y
-					// );
-					//
-					// image.set(P.x, P.y, sectionColor * intensity);
 				} else {
 					image.set(P.x, P.y, color * intensity);
 				}
@@ -336,13 +254,12 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 	for (int i=0; i < model->totalFaces(); i++) {
 		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		Vec3f triangleVertex[3] = {};
+		Vec3f originaVertex[3] = {};
 		Vec3f worldCoords[3];
 		Vec3f textureCoords[3];
 		for (int j=0; j < 3; j++) {
 			std::vector<int> faceVertex = face[j];
-			if (faceVertex[0] != 461 && faceVertex[0] != 509 && faceVertex[0] != 185) {
-				continue;
-			}
+
 			Vec3f vertex = model->getVertexByIndex(faceVertex[0]);
 
 			// Scaling the x and y of each vertex to the size of the screen/image
@@ -351,6 +268,7 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 			int z0 = 0;
 
 			triangleVertex[j] = Vec3f(x0, y0, z0);
+			originaVertex[j] = vertex;
 
 			worldCoords[j]  = vertex;
 			
@@ -362,10 +280,10 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 			normalVector.normalize(); 
 			float intensity = normalVector * lightDirection; 
 			if (intensity > 0) { 
-				drawTriangleWithZBuffer(triangleVertex, diffuseTexture, textureCoords, zBuffer, image, intensity, COLOR_TEXTURE); 
+				drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, intensity, COLOR_TEXTURE); 
 			} 
 		} else {
-			drawTriangleWithZBuffer(triangleVertex, diffuseTexture, textureCoords, zBuffer, image, 1., COLOR_RANDOM);
+			drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, 1., COLOR_RANDOM);
 		} 
 	}
 }
