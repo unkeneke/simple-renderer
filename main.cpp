@@ -147,25 +147,6 @@ Vec3f normalizeVector3(Vec3f* pixel, float maxWidth, float maxHeight, float maxD
 	return Vec3f(x, y, z);
 }
 
-void drawWireframeObjModel(TGAImage &image) {
-	for (int i=0; i < model->totalFaces(); i++) {
-		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
-		for (int j=0; j < face.size(); j++) {
-			std::vector<int> faceVertexOrigin = face[j];
-			Vec3f v0 = model->getVertexByIndex(faceVertexOrigin[0]);
-
-			std::vector<int> faceVertexEnd = face[(j+1)%3];
-			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
-			
-			int x0 = (v0.x + 1.) * WIDTH/2.;
-			int y0 = (v0.y + 1.) * HEIGHT/2.;
-			int x1 = (v1.x + 1.) * WIDTH/2.;
-			int y1 = (v1.y + 1.) * HEIGHT/2.;
-			drawLine(x0, y0, x1, y1, image, COLOR_WHITE);
-		}
-	}
-}
-
 Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 	// This calculation comes from a linear system of equations when considering u + v + w = 1 in barycentric coordinate theory
 	// The result is a vector [u, v, 1] that is perpendicular to (ACx, ABx, PAx) and (ACy, ABy, PAy)
@@ -180,6 +161,37 @@ Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 		return Vec3f(-1,1,1);
 	}
 	return Vec3f(1.f-(barycentricWeight.x+barycentricWeight.y)/barycentricWeight.z, barycentricWeight.y/barycentricWeight.z, barycentricWeight.x/barycentricWeight.z); 
+}
+
+void drawWireframeObjModel(TGAImage &image) {
+	float* wireframeZBuffer = new float[model->totalFaces() * 3];
+	for (int i=0; i < model->totalFaces(); i++) {
+		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
+		for (int j=0; j < face.size(); j++) {
+			std::vector<int> faceVertexOrigin = face[j];
+			Vec3f v0 = model->getVertexByIndex(faceVertexOrigin[0]);
+
+			std::vector<int> faceVertexEnd = face[(j+1)%3];
+			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
+		
+			
+			int x0 = (v0.x + 1.) * WIDTH/2.;
+			int y0 = (v0.y + 1.) * HEIGHT/2.;
+			int x1 = (v1.x + 1.) * WIDTH/2.;
+			int y1 = (v1.y + 1.) * HEIGHT/2.;
+
+			// TODO try at creating a z buffer for the wireframe, needs refinement
+			// float indexZ = 0.;
+			// indexZ += (v0.z + v1.z) / 2;
+			// if (wireframeZBuffer[int(i + j * 3)] >= indexZ) {
+			// 	continue;
+			// }
+			// wireframeZBuffer[int(i + j * 3)] = indexZ;
+			
+			drawLine(x0, y0, x1, y1, image, COLOR_WHITE);
+		}
+	}
+	delete wireframeZBuffer;
 }
 
 void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
@@ -207,41 +219,46 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 
 	for (P.x = bboxMin->x; P.x <= bboxMax->x; P.x++) { 
 		for (P.y = bboxMin->y; P.y <= bboxMax->y; P.y++) {
-			Vec3f barycentricPoint  = getBarycentricVector(triangleVertex, P); 
-			if (barycentricPoint.x < 0 || barycentricPoint.y < 0 || barycentricPoint.z < 0) {
+			Vec3f barycentricWeights  = getBarycentricVector(triangleVertex, P); 
+			if (barycentricWeights.x < 0 || barycentricWeights.y < 0 || barycentricWeights.z < 0) {
 				// Barycentric point is out of the triangle's area, so not a valid coordinate
 				continue;
 			}
+			
 			P.z = 0;
-			P.z += triangleVertex[0].z * barycentricPoint.x;
-			P.z += triangleVertex[1].z * barycentricPoint.y;
-			P.z += triangleVertex[2].z * barycentricPoint.z;
-			if (zbuffer[int(P.x + P.y * WIDTH)] < P.z) {
-				zbuffer[int(P.x + P.y * WIDTH)] = P.z;
-				if (color == COLOR_BACKGROUND_GRADIENT) {
-					Vec2f normalizedPixel = normalizePixel(&P);
-					image.set(P.x, P.y, TGAColor(255 * normalizedPixel.x, 255 * normalizedPixel.y,   0,   255));
-				} else if (color == COLOR_RANDOM) {
-					image.set(P.x, P.y, randomColor);
-				} else if (color == COLOR_TEXTURE) {
-					if (diffuseTexture == nullptr) {
-						image.set(P.x, P.y, COLOR_WHITE * intensity);
-						continue;
-					}
+			P.z += triangleVertex[0].z * barycentricWeights.x;
+			P.z += triangleVertex[1].z * barycentricWeights.y;
+			P.z += triangleVertex[2].z * barycentricWeights.z;
+			if (zbuffer[int(P.x + P.y * WIDTH)] >= P.z) {
+				continue;
+			}
 
-					// We use the calculated barycentricPoint from P across the original triangle
-					// And interpolate it through the texture triangle
-					Vec3f interpolatedPoint = uvTextureVertex[0] * barycentricPoint.x + uvTextureVertex[1] * barycentricPoint.y + uvTextureVertex[2] * barycentricPoint.z;
-					
-					TGAColor sectionColor = diffuseTexture->get(
-						(float)diffuseTexture->get_width() * interpolatedPoint.x,
-						(float)diffuseTexture->get_height() * interpolatedPoint.y
-					);
-					
-					image.set(P.x, P.y, sectionColor * intensity);
-				} else {
-					image.set(P.x, P.y, color * intensity);
+			// This is a visible point, update the Z Buffer
+			zbuffer[int(P.x + P.y * WIDTH)] = P.z;
+			
+			if (color == COLOR_BACKGROUND_GRADIENT) {
+				Vec2f normalizedPixel = normalizePixel(&P);
+				image.set(P.x, P.y, TGAColor(255 * normalizedPixel.x, 255 * normalizedPixel.y,   0,   255));
+			} else if (color == COLOR_RANDOM) {
+				image.set(P.x, P.y, randomColor);
+			} else if (color == COLOR_TEXTURE) {
+				if (diffuseTexture == nullptr) {
+					image.set(P.x, P.y, COLOR_WHITE * intensity);
+					continue;
 				}
+
+				// We use the calculated barycentricWeights from P across the original triangle
+				// And interpolate it through the texture triangle
+				Vec3f interpolatedPoint = uvTextureVertex[0] * barycentricWeights.x + uvTextureVertex[1] * barycentricWeights.y + uvTextureVertex[2] * barycentricWeights.z;
+					
+				TGAColor sectionColor = diffuseTexture->get(
+					(float)diffuseTexture->get_width() * interpolatedPoint.x,
+					(float)diffuseTexture->get_height() * interpolatedPoint.y
+				);
+					
+				image.set(P.x, P.y, sectionColor * intensity);
+			} else {
+				image.set(P.x, P.y, color * intensity);
 			}
 		} 
 	}
