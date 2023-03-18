@@ -63,6 +63,13 @@ Vec3f Util::alternativeBarycentric(Vec3f triangleVertexA, Vec3f triangleVertexB,
     return Vec3f(u, v, w);
 }
 
+Vec3f Util::normalizeVector(Vec3f* pixel, float maxWidth, float maxHeight, float maxDepth, float limit) {
+    // zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
+    float x = ((pixel->x - 1.) / (maxWidth - 1.)) * limit;
+    float y = ((pixel->y - 1.) / (maxHeight - 1.)) * limit;
+    float z = ((pixel->z - 1.) / (maxDepth - 1.)) * limit;
+    return Vec3f(x, y, z);
+}
 
 
 

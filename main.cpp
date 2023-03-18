@@ -132,21 +132,6 @@ void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color,
 	}
 }
 
-Vec2f normalizePixel(Vec3f* pixel) {
-	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
-	float x = (pixel->x - 1.) / (WIDTH - 1.);
-	float y = (pixel->y - 1.) / (HEIGHT - 1.);
-	return Vec2f(x,y);
-}
-
-Vec3f normalizeVector3(Vec3f* pixel, float maxWidth, float maxHeight, float maxDepth, float limit) {
-	// zi = (xi – min(x)) / (max(x) – min(x)) * M, normalize between 0 and M
-	float x = ((pixel->x - 1.) / (maxWidth - 1.)) * limit;
-	float y = ((pixel->y - 1.) / (maxHeight - 1.)) * limit;
-	float z = ((pixel->z - 1.) / (maxDepth - 1.)) * limit;
-	return Vec3f(x, y, z);
-}
-
 Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 	// This calculation comes from a linear system of equations when considering u + v + w = 1 in barycentric coordinate theory
 	// The result is a vector [u, v, 1] that is perpendicular to (ACx, ABx, PAx) and (ACy, ABy, PAy)
@@ -237,7 +222,7 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 			zbuffer[int(P.x + P.y * WIDTH)] = P.z;
 			
 			if (color == COLOR_BACKGROUND_GRADIENT) {
-				Vec2f normalizedPixel = normalizePixel(&P);
+				Vec3f normalizedPixel = Util::normalizeVector(&P, WIDTH, HEIGHT, WIDTH + HEIGHT, 1);
 				image.set(P.x, P.y, TGAColor(255 * normalizedPixel.x, 255 * normalizedPixel.y,   0,   255));
 			} else if (color == COLOR_RANDOM) {
 				image.set(P.x, P.y, randomColor);
@@ -300,7 +285,7 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 				drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, intensity, COLOR_TEXTURE); 
 			} 
 		} else {
-			drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, 1., COLOR_RANDOM);
+			drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, 1., COLOR_BACKGROUND_GRADIENT);
 		} 
 	}
 }
