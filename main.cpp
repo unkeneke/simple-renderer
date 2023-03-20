@@ -192,6 +192,26 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 		bboxMax->y = std::min<int>(clamp.y, std::max<int>(bboxMax->y, triangleVertex[i].y));
 	} 
 }
+Vec3f* calculateZPerspective(Vec3f* vector, float zConstant) {
+	Vec4f vector4D(vector->x,vector->y,vector->z,1);
+
+	Vec4f matrix[4] = {
+		Vec4f(1., 0., 0., 0.),
+		Vec4f(0., 1., 0., 0.),
+		Vec4f(0., 0., 1., 0.),
+		Vec4f(0., 0., -1./zConstant, 1.)
+	};
+
+	float values[4];
+	for (int i = 0; i < 5; i++) {
+		values[i] = matrix[i] * vector4D;
+	}
+
+	Vec4f result4D(values[0],values[1],values[2],values[3]);
+	Vec3f* result = result4D.projectTo3D();
+	// std::cout << result;
+	return result;
+}
 
 void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
 	Vec2i* bboxMin = new Vec2i();
@@ -199,21 +219,26 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 	setScreenBoundaries(triangleVertex, bboxMin, bboxMax, image );
 	
 	Vec3f P;
+	Vec3f* triangleVertexProjected = new Vec3f[3];
+
+	for (int i = 0; i < 4; i++) {
+		triangleVertexProjected[i] = *calculateZPerspective(&triangleVertex[i], -1./5.);
+	}
 	
 	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
 
 	for (P.x = bboxMin->x; P.x <= bboxMax->x; P.x++) { 
 		for (P.y = bboxMin->y; P.y <= bboxMax->y; P.y++) {
-			Vec3f barycentricWeights  = getBarycentricVector(triangleVertex, P); 
+			Vec3f barycentricWeights  = getBarycentricVector(triangleVertexProjected, P); 
 			if (barycentricWeights.x < 0 || barycentricWeights.y < 0 || barycentricWeights.z < 0) {
 				// Barycentric point is out of the triangle's area, so not a valid coordinate
 				continue;
 			}
 			
 			P.z = 0;
-			P.z += triangleVertex[0].z * barycentricWeights.x;
-			P.z += triangleVertex[1].z * barycentricWeights.y;
-			P.z += triangleVertex[2].z * barycentricWeights.z;
+			P.z += triangleVertexProjected[0].z * barycentricWeights.x;
+			P.z += triangleVertexProjected[1].z * barycentricWeights.y;
+			P.z += triangleVertexProjected[2].z * barycentricWeights.z;
 			if (zbuffer[int(P.x + P.y * WIDTH)] >= P.z) {
 				continue;
 			}
