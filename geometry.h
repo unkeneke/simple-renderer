@@ -46,7 +46,6 @@ typedef Vec3<int>   Vec3i;
 template <class t> struct Vec4 {
 	union {
 		struct {t x, y, z, w;};
-		struct { t ivert, iuv, inorm; };
 		t raw[4];
 	};
 	Vec4() : x(0), y(0), z(0), w(0) {}
@@ -54,8 +53,8 @@ template <class t> struct Vec4 {
 	inline t       operator *(const Vec4<t> &v) const { return x*v.x + y*v.y + z*v.z + w*v.w; }
 	template <class > friend std::ostream& operator<<(std::ostream& s, Vec4<t>& v);
 	
-	Vec3f* projectTo3D() {
-		Vec3f* result = new Vec3f(x/w, y/w, z/w);
+	Vec3f projectTo3D() {
+		Vec3f result(x/w, y/w, z/w);
 		return result;
 	}
 };

@@ -192,10 +192,10 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 		bboxMax->y = std::min<int>(clamp.y, std::max<int>(bboxMax->y, triangleVertex[i].y));
 	} 
 }
-Vec3f* calculateZPerspective(Vec3f* vector, float zConstant) {
-	Vec4f vector4D(vector->x,vector->y,vector->z,1);
+Vec3f calculateZPerspective(Vec3f& vector, float zConstant) {
+	Vec4f vector4D(vector.x, vector.y, vector.z,1);
 
-	Vec4f matrix[4] = {
+	std::vector<Vec4f> matrix = {
 		Vec4f(1., 0., 0., 0.),
 		Vec4f(0., 1., 0., 0.),
 		Vec4f(0., 0., 1., 0.),
@@ -203,12 +203,12 @@ Vec3f* calculateZPerspective(Vec3f* vector, float zConstant) {
 	};
 
 	float values[4];
-	for (int i = 0; i < 5; i++) {
+	for (int i = 0; i < matrix.size(); i++) {
 		values[i] = matrix[i] * vector4D;
 	}
 
 	Vec4f result4D(values[0],values[1],values[2],values[3]);
-	Vec3f* result = result4D.projectTo3D();
+	Vec3f result = result4D.projectTo3D();
 	// std::cout << result;
 	return result;
 }
@@ -219,10 +219,10 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 	setScreenBoundaries(triangleVertex, bboxMin, bboxMax, image );
 	
 	Vec3f P;
-	Vec3f* triangleVertexProjected = new Vec3f[3];
+	Vec3f triangleVertexProjected[3];
 
-	for (int i = 0; i < 4; i++) {
-		triangleVertexProjected[i] = *calculateZPerspective(&triangleVertex[i], -1./5.);
+	for (int i = 0; i < 3; i++) {
+		triangleVertexProjected[i] = calculateZPerspective(triangleVertex[i], -500.);
 	}
 	
 	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
