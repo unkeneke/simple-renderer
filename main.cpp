@@ -20,12 +20,13 @@ const TGAColor COLOR_TEXTURE = TGAColor(-3, 0,   0,   255);
 
 const int WIDTH  = 800;
 const int HEIGHT = 800;
+const int DEPTH = 255;
 
 const std::wstring OUTPUT_TGA_NAME = L"output.tga";
 
 float *zBuffer = new float[WIDTH * HEIGHT];
 Model *model = NULL;
-TGAImage *modelDiffuseTexture =  new TGAImage();
+TGAImage *diffuseTexture =  new TGAImage();
 Vec3f lightDirection(0,0,-1);
 Vec2i clamp(WIDTH - 1, HEIGHT - 1); 
 
@@ -148,6 +149,29 @@ Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 	return Vec3f(1.f-(barycentricWeight.x+barycentricWeight.y)/barycentricWeight.z, barycentricWeight.y/barycentricWeight.z, barycentricWeight.x/barycentricWeight.z); 
 }
 
+Vec3f calculateZPerspective(Vec3f& vector, float zConstant) {
+	Vec4f vector4D(vector.x, vector.y, vector.z,1);
+
+	std::vector<Vec4f> matrix = {
+		Vec4f(1., 0., 0., 0.),
+		Vec4f(0., 1., 0., 0.),
+		Vec4f(0., 0., 1., 0.),
+		Vec4f(0., 0., -1./ zConstant, 1.)
+	};
+
+	float values[4];
+	for (int i = 0; i < matrix.size(); i++) {
+		values[i] = matrix[i] * vector4D;
+	}
+
+	Vec4f result4D(values[0],values[1],values[2],values[3]);
+	// Vec4f result4D(vector.x,vector.y,vector.z,1-(vector.z/zConstant));
+	Vec3f result(result4D.x/result4D.w, result4D.y/result4D.w, result4D.z/result4D.w);
+	// Vec3f result = result4D.projectTo3D();
+
+	return result;
+}
+
 void drawWireframeObjModel(TGAImage &image) {
 	float* wireframeZBuffer = new float[model->totalFaces() * 3];
 	for (int i=0; i < model->totalFaces(); i++) {
@@ -172,11 +196,21 @@ void drawWireframeObjModel(TGAImage &image) {
 			// 	continue;
 			// }
 			// wireframeZBuffer[int(i + j * 3)] = indexZ;
+
+			// TODO Playing with wireframe's perspective
+			// int z0 = (v0.z) * WIDTH/2.;
+			// int z1 = (v1.z) * WIDTH/2.;
+			// Vec3f test1(x0, y0, z0);
+			// Vec3f test2(x1, y1, z1);
+			// float zConstant = 5000;
+			// Vec3f r0 = calculateZPerspective(test1, zConstant);
+			// Vec3f r1 = calculateZPerspective(test2, zConstant);
+			// drawLine(r0.x, r0.y, r1.x, r1.y, image, COLOR_WHITE);
 			
 			drawLine(x0, y0, x1, y1, image, COLOR_WHITE);
 		}
 	}
-	delete wireframeZBuffer;
+	delete[] wireframeZBuffer;
 }
 
 void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
@@ -192,26 +226,6 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 		bboxMax->y = std::min<int>(clamp.y, std::max<int>(bboxMax->y, triangleVertex[i].y));
 	} 
 }
-Vec3f calculateZPerspective(Vec3f& vector, float zConstant) {
-	Vec4f vector4D(vector.x, vector.y, vector.z,1);
-
-	std::vector<Vec4f> matrix = {
-		Vec4f(1., 0., 0., 0.),
-		Vec4f(0., 1., 0., 0.),
-		Vec4f(0., 0., 1., 0.),
-		Vec4f(0., 0., -1./zConstant, 1.)
-	};
-
-	float values[4];
-	for (int i = 0; i < matrix.size(); i++) {
-		values[i] = matrix[i] * vector4D;
-	}
-
-	Vec4f result4D(values[0],values[1],values[2],values[3]);
-	Vec3f result = result4D.projectTo3D();
-	// std::cout << result;
-	return result;
-}
 
 void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
 	Vec2i* bboxMin = new Vec2i();
@@ -219,11 +233,7 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 	setScreenBoundaries(triangleVertex, bboxMin, bboxMax, image );
 	
 	Vec3f P;
-	Vec3f triangleVertexProjected[3];
-
-	for (int i = 0; i < 3; i++) {
-		triangleVertexProjected[i] = calculateZPerspective(triangleVertex[i], -500.);
-	}
+	Vec3f* triangleVertexProjected = triangleVertex;
 	
 	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
 
@@ -265,8 +275,11 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 					(float)diffuseTexture->get_width() * interpolatedPoint.x,
 					(float)diffuseTexture->get_height() * interpolatedPoint.y
 				);
+
+				float zConstant = -700;
+				Vec3f r0 = calculateZPerspective(P, zConstant);
 					
-				image.set(P.x, P.y, sectionColor * intensity);
+				image.set(r0.x, r0.y, sectionColor * intensity);
 			} else {
 				image.set(P.x, P.y, color * intensity);
 			}
@@ -290,9 +303,9 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 			Vec3f vertex = model->getVertexByIndex(faceVertex[0]);
 
 			// Scaling the x and y of each vertex to the size of the screen/image
-			int x0 = (vertex.x + 1.) * WIDTH / 2.;
-			int y0 = (vertex.y + 1.) * HEIGHT / 2.;
-			int z0 = 0;
+			float x0 = (vertex.x + 1.) * (float)WIDTH / 2.;
+			float y0 = (vertex.y + 1.) * (float)HEIGHT / 2.;
+			float z0 = vertex.z * (float)DEPTH;
 
 			triangleVertex[j] = Vec3f(x0, y0, z0);
 			originaVertex[j] = vertex;
@@ -349,12 +362,12 @@ int main(int argc, char** argv) {
 	
 	TGAImage image(WIDTH, HEIGHT, TGAImage::RGB);
 
-	modelDiffuseTexture->read_tga_file("obj/head_diffuse.tga");
-	modelDiffuseTexture->flip_vertically();
+	diffuseTexture->read_tga_file("obj/head_diffuse.tga");
+	diffuseTexture->flip_vertically();
 
 	
 	// drawTriangleExamples(image);
-	drawObjModel(image, modelDiffuseTexture, true, false);
+	drawObjModel(image, diffuseTexture, true, false);
 	
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
@@ -364,7 +377,7 @@ int main(int argc, char** argv) {
 	
 	delete model;
 	delete outputFileName;
-	delete modelDiffuseTexture;
+	delete diffuseTexture;
 
 	openTGAOutput();
 	
