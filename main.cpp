@@ -9,15 +9,6 @@
 #include "util.h"
 
 
-const TGAColor COLOR_WHITE = TGAColor(255, 255, 255, 255);
-const TGAColor COLOR_RED   = TGAColor(255, 0,   0,   255);
-const TGAColor COLOR_GREEN   = TGAColor(0, 255,   0,   255);
-const TGAColor COLOR_BLUE   = TGAColor(0, 0,   255,   255);
-const TGAColor COLOR_PURPLE   = TGAColor(255, 0,   255,   255);
-const TGAColor COLOR_BACKGROUND_GRADIENT = TGAColor(-1, 0,   0,   255);
-const TGAColor COLOR_RANDOM = TGAColor(-2, 0,   0,   255);
-const TGAColor COLOR_TEXTURE = TGAColor(-3, 0,   0,   255);
-
 const int WIDTH  = 800;
 const int HEIGHT = 800;
 const int DEPTH = 255;
@@ -66,73 +57,6 @@ std::vector<Vec2f> drawLine(int x0, int y0, int x1, int y1, TGAImage &image, TGA
 	return linePoints;
 } 
 
-Vec2f calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2) {
-	float xc = (t0.x + t1.x + t2.x) / 3;//* 0.33333333333; // this could be faster than division
-	float yc = (t0.y + t1.y + t2.y) / 3;//* 0.33333333333;
-	return Vec2f(xc, yc);
-}
-
-void drawVectorToPoint(std::vector<Vec2f> linePoints, Vec2f point, TGAImage &image, TGAColor color) {
-	for (int i = 0; i < linePoints.size(); i++) {
-		drawLine(linePoints.at(i).x, linePoints.at(i).y, point.x, point.y, image, color);
-	}
-}
-
-void drawTriangleByLineSweeping(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color) { 
-	// sort the vertices, t0, t1, t2 lower−to−upper
-	if (t0.y>t1.y) std::swap(t0, t1); 
-	if (t0.y>t2.y) std::swap(t0, t2); 
-	if (t1.y>t2.y) std::swap(t1, t2);
-
-	int totalHeight = t2.y - t0.y;
-	
-	for (int i = 0; i < totalHeight; i++) { 
-		bool secondHalf = i>t1.y-t0.y || t1.y==t0.y; 
-		int segmentHeight = secondHalf ? t2.y-t1.y : t1.y-t0.y; 
-		float alpha = (float)i/totalHeight; 
-		float beta = (float)(i-(secondHalf ? t1.y-t0.y : 0)) / segmentHeight;
-		Vec2i A = t0 + (t2-t0) * alpha; 
-		Vec2i B = secondHalf ? t1 + (t2-t1)*beta : t0 + (t1-t0)*beta; 
-		if (A.x>B.x) {
-			std::swap(A, B);
-		}
-		for (int j=A.x; j<=B.x; j++) { 
-			image.set(j, t0.y+i, color);
-		} 
-	} 
-}
-
-void drawTriangle(Vec2i* triangle, TGAImage &image, TGAColor color) { 
-	drawTriangleByLineSweeping(triangle[0], triangle[1], triangle[2], image, color);
-}
-
-Vec2i scaleVector(Vec2i vector) {
-	return vector * 4;
-}
-
-void drawTriangleExamples(TGAImage &image) {
-	Vec2i t0[3] = { scaleVector(Vec2i(10, 70)),   scaleVector(Vec2i(50, 160)),  scaleVector(Vec2i(70, 80)) }; 
-	Vec2i t1[3] = { scaleVector(Vec2i(180, 50)),  scaleVector(Vec2i(150, 1)),   scaleVector(Vec2i(70, 180)) }; 
-	Vec2i t2[3] = { scaleVector(Vec2i(180, 150)), scaleVector(Vec2i(120, 160)), scaleVector(Vec2i(130, 180)) };
-	drawTriangle(t0, image, COLOR_RED); 
-	drawTriangle(t1, image, COLOR_GREEN); 
-	drawTriangle(t2, image, COLOR_WHITE);
-}
-
-void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int yBuffer[]) {
-	if (p0.x>p1.x) {
-		std::swap(p0, p1);
-	}
-	for (int x=p0.x; x<=p1.x; x++) {
-		float t = (x-p0.x)/(float)(p1.x-p0.x);
-		int y = p0.y*(1.-t) + p1.y*t;
-		if (yBuffer[x]<y) {
-			yBuffer[x] = y;
-			image.set(x, 0, color);
-		}
-	}
-}
-
 Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 	// This calculation comes from a linear system of equations when considering u + v + w = 1 in barycentric coordinate theory
 	// The result is a vector [u, v, 1] that is perpendicular to (ACx, ABx, PAx) and (ACy, ABy, PAy)
@@ -149,27 +73,67 @@ Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 	return Vec3f(1.f-(barycentricWeight.x+barycentricWeight.y)/barycentricWeight.z, barycentricWeight.y/barycentricWeight.z, barycentricWeight.x/barycentricWeight.z); 
 }
 
-Vec3f calculateZPerspective(Vec3f& vector, float zConstant) {
-	Vec4f vector4D(vector.x, vector.y, vector.z,1);
+Vec3f calculatePerspective(Vec3f& vector, float zConstant) {
+	// Vec4f vector4D(vector.x, vector.y, vector.z,1);
 
-	std::vector<Vec4f> matrix = {
-		Vec4f(1., 0., 0., 0.),
-		Vec4f(0., 1., 0., 0.),
-		Vec4f(0., 0., 1., 0.),
-		Vec4f(0., 0., -1./ zConstant, 1.)
-	};
+	// // CALCULATE viewport(width/8, height/8, width*3/4, height*3/4);
+	// float x = WIDTH/8;
+	// float y = HEIGHT/8;
+	// float w = WIDTH*3/4;
+	// float h = HEIGHT*3/4;
+	// std::vector<Vec4f> matrix = {
+	// 	Vec4f(w/2., 0., 0., 0.),
+	// 	Vec4f(0., h/2., 0., 0.),
+	// 	Vec4f(0., 0., (DEPTH)/2., 0.),
+	// 	Vec4f(x+w/2., y+h/2., DEPTH/2., 1.)
+	// };
+	// std::vector<Vec4f> projection = {
+	// 	// Vec4f(1., 0., 0., 0.),
+	// 	// Vec4f(0., 1., 0., 0.),
+	// 	// Vec4f(0., 0., 1., 0.),
+	// 	// Vec4f(0., 0., (-1./ zConstant), 1.)
+	// 	Vec4f(1., 0., 0., 0.),
+	// 	Vec4f(0., 1., 0., 0.),
+	// 	Vec4f(0., 0., 1., (-1./ zConstant)),
+	// 	Vec4f(0., 0., 0., 1.)
+	// };
+	// std::vector<Vec4f> resultMatrix = {};
+	// for (int i = 0; i < 4; i++) {
+	// 	Vec4f row = matrix[i];
+	//
+	// 	float newX = row.x*projection[0].x + row.y*projection[0].y + row.z*projection[0].z + row.w*projection[0].w;
+	// 	float newY = row.x*projection[1].x + row.y*projection[1].y + row.z*projection[1].z + row.w*projection[1].w;
+	// 	float newZ = row.x*projection[2].x + row.y*projection[2].y + row.z*projection[2].z + row.w*projection[2].w;
+	// 	float newW = row.x*projection[3].x + row.y*projection[3].y + row.z*projection[3].z + row.w*projection[3].w;
+	// 	Vec4f newProjection(newX, newY, newZ, newW);
+	// 	resultMatrix.push_back(newProjection);
+	// }
+	
+	// 	// std::vector<Vec4f> matrix = {
+	// 	// 	Vec4f(1., 0., 0., 0.),
+	// 	// 	Vec4f(0., 1., 0., 0.),
+	// 	// 	Vec4f(0., 0., 1., 0.),
+	// 	// 	Vec4f(0., 0., (-1./ zConstant), 1.)
+	// 	// };
 
-	float values[4];
-	for (int i = 0; i < matrix.size(); i++) {
-		values[i] = matrix[i] * vector4D;
-	}
+	// float values[4];
+	// for (int i = 0; i < resultMatrix.size(); i++) {
+	// 	values[i] = resultMatrix[i] * vector4D;
+	// }
+	//
+	// Vec4f result4D(values[0],values[1],values[2],values[3]);
+	// Vec3f result(result4D.x/result4D.w, result4D.y/result4D.w, result4D.z/result4D.w);
 
-	Vec4f result4D(values[0],values[1],values[2],values[3]);
-	// Vec4f result4D(vector.x,vector.y,vector.z,1-(vector.z/zConstant));
-	Vec3f result(result4D.x/result4D.w, result4D.y/result4D.w, result4D.z/result4D.w);
-	// Vec3f result = result4D.projectTo3D();
+	// float x0 = (result.x + 1.) * (float)WIDTH / 2.;
+	// float y0 = (result.y + 1.) * (float)HEIGHT / 2.;
+	// float z0 = result.z * (float)DEPTH;
 
-	return result;
+
+	float x0 = (vector.x + 1.) * (float)WIDTH / 2.;
+	float y0 = (vector.y + 1.) * (float)HEIGHT / 2.;
+	float z0 = vector.z * (float)DEPTH;
+	
+	return Vec3f(x0, y0, z0);
 }
 
 void drawWireframeObjModel(TGAImage &image) {
@@ -184,7 +148,7 @@ void drawWireframeObjModel(TGAImage &image) {
 			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
 		
 			
-			int x0 = (v0.x + 1.) * WIDTH/2.;
+			int x0 = (v0.x + 1.) ;
 			int y0 = (v0.y + 1.) * HEIGHT/2.;
 			int x1 = (v1.x + 1.) * WIDTH/2.;
 			int y1 = (v1.y + 1.) * HEIGHT/2.;
@@ -207,7 +171,7 @@ void drawWireframeObjModel(TGAImage &image) {
 			// Vec3f r1 = calculateZPerspective(test2, zConstant);
 			// drawLine(r0.x, r0.y, r1.x, r1.y, image, COLOR_WHITE);
 			
-			drawLine(x0, y0, x1, y1, image, COLOR_WHITE);
+			drawLine(x0, y0, x1, y1, image, Util::COLOR_WHITE);
 		}
 	}
 	delete[] wireframeZBuffer;
@@ -227,13 +191,18 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 	} 
 }
 
-void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
+void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
+	Vec3f triangleVertexProjected[3];
+	
+	for (int i = 0; i < 3; i++) {
+		triangleVertexProjected[i] = calculatePerspective(triangleVertex[i], 3.);
+	}
+
 	Vec2i* bboxMin = new Vec2i();
 	Vec2i* bboxMax = new Vec2i();
-	setScreenBoundaries(triangleVertex, bboxMin, bboxMax, image );
+	setScreenBoundaries(triangleVertexProjected, bboxMin, bboxMax, image );
 	
 	Vec3f P;
-	Vec3f* triangleVertexProjected = triangleVertex;
 	
 	TGAColor randomColor(rand() % 255, rand() % 255, rand() % 255, 255);
 
@@ -256,14 +225,14 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 			// This is a visible point, update the Z Buffer
 			zbuffer[int(P.x + P.y * WIDTH)] = P.z;
 			
-			if (color == COLOR_BACKGROUND_GRADIENT) {
+			if (color == Util::COLOR_BACKGROUND_GRADIENT) {
 				Vec3f normalizedPixel = Util::normalizeVector(&P, WIDTH, HEIGHT, WIDTH + HEIGHT, 1);
 				image.set(P.x, P.y, TGAColor(255 * normalizedPixel.x, 255 * normalizedPixel.y,   0,   255));
-			} else if (color == COLOR_RANDOM) {
+			} else if (color == Util::COLOR_RANDOM) {
 				image.set(P.x, P.y, randomColor);
-			} else if (color == COLOR_TEXTURE) {
+			} else if (color == Util::COLOR_TEXTURE) {
 				if (diffuseTexture == nullptr) {
-					image.set(P.x, P.y, COLOR_WHITE * intensity);
+					image.set(P.x, P.y, Util::COLOR_WHITE * intensity);
 					continue;
 				}
 
@@ -276,10 +245,10 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, Vec3f *originaVertex, TGAIma
 					(float)diffuseTexture->get_height() * interpolatedPoint.y
 				);
 
-				float zConstant = -700;
-				Vec3f r0 = calculateZPerspective(P, zConstant);
+				// float zConstant = -100;
+				// Vec3f r0 = calculateZPerspective(P, zConstant);
 					
-				image.set(r0.x, r0.y, sectionColor * intensity);
+				image.set(P.x, P.y, sectionColor * intensity);
 			} else {
 				image.set(P.x, P.y, color * intensity);
 			}
@@ -295,35 +264,26 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		Vec3f triangleVertex[3] = {};
 		Vec3f originaVertex[3] = {};
-		Vec3f worldCoords[3];
 		Vec3f textureCoords[3];
 		for (int j=0; j < 3; j++) {
 			std::vector<int> faceVertex = face[j];
 
 			Vec3f vertex = model->getVertexByIndex(faceVertex[0]);
 
-			// Scaling the x and y of each vertex to the size of the screen/image
-			float x0 = (vertex.x + 1.) * (float)WIDTH / 2.;
-			float y0 = (vertex.y + 1.) * (float)HEIGHT / 2.;
-			float z0 = vertex.z * (float)DEPTH;
-
-			triangleVertex[j] = Vec3f(x0, y0, z0);
-			originaVertex[j] = vertex;
-
-			worldCoords[j]  = vertex;
+			triangleVertex[j] = vertex;
 			
 			textureCoords[j] =  model->getTextureVertexByIndex(faceVertex[1]);
 		}
 
 		if (enableLight) {
-			Vec3f normalVector = (worldCoords[2]-worldCoords[0])^(worldCoords[1]-worldCoords[0]); 
+			Vec3f normalVector = (triangleVertex[2]-triangleVertex[0])^(triangleVertex[1]-triangleVertex[0]); 
 			normalVector.normalize(); 
 			float intensity = normalVector * lightDirection; 
 			if (intensity > 0) { 
-				drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, intensity, COLOR_TEXTURE); 
+				drawTriangleWithZBuffer(triangleVertex, diffuseTexture, textureCoords, zBuffer, image, intensity, Util::COLOR_TEXTURE); 
 			} 
 		} else {
-			drawTriangleWithZBuffer(triangleVertex, originaVertex, diffuseTexture, textureCoords, zBuffer, image, 1., COLOR_BACKGROUND_GRADIENT);
+			drawTriangleWithZBuffer(triangleVertex, diffuseTexture, textureCoords, zBuffer, image, 1., Util::COLOR_BACKGROUND_GRADIENT);
 		} 
 	}
 }
