@@ -146,12 +146,6 @@ void drawWireframeObjModel(TGAImage &image) {
 
 			std::vector<int> faceVertexEnd = face[(j+1)%3];
 			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
-		
-			
-			int x0 = (v0.x + 1.) ;
-			int y0 = (v0.y + 1.) * HEIGHT/2.;
-			int x1 = (v1.x + 1.) * WIDTH/2.;
-			int y1 = (v1.y + 1.) * HEIGHT/2.;
 
 			// TODO try at creating a z buffer for the wireframe, needs refinement
 			// float indexZ = 0.;
@@ -166,12 +160,11 @@ void drawWireframeObjModel(TGAImage &image) {
 			// int z1 = (v1.z) * WIDTH/2.;
 			// Vec3f test1(x0, y0, z0);
 			// Vec3f test2(x1, y1, z1);
-			// float zConstant = 5000;
-			// Vec3f r0 = calculateZPerspective(test1, zConstant);
-			// Vec3f r1 = calculateZPerspective(test2, zConstant);
-			// drawLine(r0.x, r0.y, r1.x, r1.y, image, COLOR_WHITE);
 			
-			drawLine(x0, y0, x1, y1, image, Util::COLOR_WHITE);
+			float zConstant = 5000;
+			Vec3f r0 = calculatePerspective(v0, zConstant);
+			Vec3f r1 = calculatePerspective(v1, zConstant);
+			drawLine(r0.x, r0.y, r1.x, r1.y, image, Util::COLOR_WHITE);
 		}
 	}
 	delete[] wireframeZBuffer;
@@ -327,7 +320,7 @@ int main(int argc, char** argv) {
 
 	
 	// drawTriangleExamples(image);
-	drawObjModel(image, diffuseTexture, true, false);
+	drawObjModel(image, diffuseTexture, true, true);
 	
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
