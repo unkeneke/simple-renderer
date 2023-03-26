@@ -1,9 +1,9 @@
-#ifndef __GEOMETRY_H__
+ #ifndef __GEOMETRY_H__
 #define __GEOMETRY_H__
 
 #include <cmath>
+#include <vector>
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <class t> struct Vec2 {
 	union {
@@ -70,5 +70,26 @@ template <class t> std::ostream& operator<<(std::ostream& s, Vec3<t>& v) {
 	s << "(" << v.x << ", " << v.y << ", " << v.z << ")\n";
 	return s;
 }
+
+const int DEFAULT_ALLOC=4;
+
+class Matrix {
+	std::vector<std::vector<float> > m;
+	int rows, cols;
+public:
+	Matrix(int r=DEFAULT_ALLOC, int c=DEFAULT_ALLOC);
+	inline int nrows();
+	inline int ncols();
+
+	static Matrix identity(int dimensions);
+	std::vector<float>& operator[](const int i);
+	Matrix operator*(const Matrix& a);
+	Matrix transpose();
+	Matrix inverse();
+	static Matrix vectorToMatrix(Vec3f v);
+	static Vec3f matrixToVector(Matrix m);
+
+	friend std::ostream& operator<<(std::ostream& s, Matrix& m);
+};
 
 #endif //__GEOMETRY_H__
