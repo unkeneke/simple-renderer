@@ -4,14 +4,14 @@
 #include "util.h"
 #include "tgaimage.h"
 
-const TGAColor Util::COLOR_WHITE = TGAColor(255, 255, 255, 255);
-const TGAColor Util::COLOR_RED   = TGAColor(255, 0,   0,   255);
-const TGAColor Util::COLOR_GREEN   = TGAColor(0, 255,   0,   255);
-const TGAColor Util::COLOR_BLUE   = TGAColor(0, 0,   255,   255);
-const TGAColor Util::COLOR_PURPLE   = TGAColor(255, 0,   255,   255);
+const TGAColor Util::COLOR_WHITE               = TGAColor(255, 255, 255, 255);
+const TGAColor Util::COLOR_RED                 = TGAColor(255, 0,   0,   255);
+const TGAColor Util::COLOR_GREEN               = TGAColor(0, 255,   0,   255);
+const TGAColor Util::COLOR_BLUE                = TGAColor(0, 0,   255,   255);
+const TGAColor Util::COLOR_PURPLE              = TGAColor(255, 0,   255,   255);
 const TGAColor Util::COLOR_BACKGROUND_GRADIENT = TGAColor(-1, 0,   0,   255);
-const TGAColor Util::COLOR_RANDOM = TGAColor(-2, 0,   0,   255);
-const TGAColor Util::COLOR_TEXTURE = TGAColor(-3, 0,   0,   255);
+const TGAColor Util::COLOR_RANDOM              = TGAColor(-2, 0,   0,   255);
+const TGAColor Util::COLOR_TEXTURE             = TGAColor(-3, 0,   0,   255);
 
 Vec2f Util::calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2) {
     float xc = (t0.x + t1.x + t2.x) / 3;//* 0.33333333333; // this could be faster than division

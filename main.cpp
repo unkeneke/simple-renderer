@@ -73,103 +73,6 @@ Vec3f getBarycentricVector(Vec3f *triangleVertex, Vec3f P) {
 	return Vec3f(1.f-(barycentricWeight.x+barycentricWeight.y)/barycentricWeight.z, barycentricWeight.y/barycentricWeight.z, barycentricWeight.x/barycentricWeight.z); 
 }
 
-Vec3f calculatePerspective(Vec3f& vector, float zConstant) {
-	// Vec4f vector4D(vector.x, vector.y, vector.z,1);
-
-	// // CALCULATE viewport(width/8, height/8, width*3/4, height*3/4);
-	// float x = WIDTH/8;
-	// float y = HEIGHT/8;
-	// float w = WIDTH*3/4;
-	// float h = HEIGHT*3/4;
-	// std::vector<Vec4f> matrix = {
-	// 	Vec4f(w/2., 0., 0., 0.),
-	// 	Vec4f(0., h/2., 0., 0.),
-	// 	Vec4f(0., 0., (DEPTH)/2., 0.),
-	// 	Vec4f(x+w/2., y+h/2., DEPTH/2., 1.)
-	// };
-	// std::vector<Vec4f> projection = {
-	// 	// Vec4f(1., 0., 0., 0.),
-	// 	// Vec4f(0., 1., 0., 0.),
-	// 	// Vec4f(0., 0., 1., 0.),
-	// 	// Vec4f(0., 0., (-1./ zConstant), 1.)
-	// 	Vec4f(1., 0., 0., 0.),
-	// 	Vec4f(0., 1., 0., 0.),
-	// 	Vec4f(0., 0., 1., (-1./ zConstant)),
-	// 	Vec4f(0., 0., 0., 1.)
-	// };
-	// std::vector<Vec4f> resultMatrix = {};
-	// for (int i = 0; i < 4; i++) {
-	// 	Vec4f row = matrix[i];
-	//
-	// 	float newX = row.x*projection[0].x + row.y*projection[0].y + row.z*projection[0].z + row.w*projection[0].w;
-	// 	float newY = row.x*projection[1].x + row.y*projection[1].y + row.z*projection[1].z + row.w*projection[1].w;
-	// 	float newZ = row.x*projection[2].x + row.y*projection[2].y + row.z*projection[2].z + row.w*projection[2].w;
-	// 	float newW = row.x*projection[3].x + row.y*projection[3].y + row.z*projection[3].z + row.w*projection[3].w;
-	// 	Vec4f newProjection(newX, newY, newZ, newW);
-	// 	resultMatrix.push_back(newProjection);
-	// }
-	
-	// 	// std::vector<Vec4f> matrix = {
-	// 	// 	Vec4f(1., 0., 0., 0.),
-	// 	// 	Vec4f(0., 1., 0., 0.),
-	// 	// 	Vec4f(0., 0., 1., 0.),
-	// 	// 	Vec4f(0., 0., (-1./ zConstant), 1.)
-	// 	// };
-
-	// float values[4];
-	// for (int i = 0; i < resultMatrix.size(); i++) {
-	// 	values[i] = resultMatrix[i] * vector4D;
-	// }
-	//
-	// Vec4f result4D(values[0],values[1],values[2],values[3]);
-	// Vec3f result(result4D.x/result4D.w, result4D.y/result4D.w, result4D.z/result4D.w);
-
-	// float x0 = (result.x + 1.) * (float)WIDTH / 2.;
-	// float y0 = (result.y + 1.) * (float)HEIGHT / 2.;
-	// float z0 = result.z * (float)DEPTH;
-
-
-	float x0 = (vector.x + 1.) * (float)WIDTH / 2.;
-	float y0 = (vector.y + 1.) * (float)HEIGHT / 2.;
-	float z0 = vector.z * (float)DEPTH;
-	
-	return Vec3f(x0, y0, z0);
-}
-
-void drawWireframeObjModel(TGAImage &image) {
-	float* wireframeZBuffer = new float[model->totalFaces() * 3];
-	for (int i=0; i < model->totalFaces(); i++) {
-		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
-		for (int j=0; j < face.size(); j++) {
-			std::vector<int> faceVertexOrigin = face[j];
-			Vec3f v0 = model->getVertexByIndex(faceVertexOrigin[0]);
-
-			std::vector<int> faceVertexEnd = face[(j+1)%3];
-			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
-
-			// TODO try at creating a z buffer for the wireframe, needs refinement
-			// float indexZ = 0.;
-			// indexZ += (v0.z + v1.z) / 2;
-			// if (wireframeZBuffer[int(i + j * 3)] >= indexZ) {
-			// 	continue;
-			// }
-			// wireframeZBuffer[int(i + j * 3)] = indexZ;
-
-			// TODO Playing with wireframe's perspective
-			// int z0 = (v0.z) * WIDTH/2.;
-			// int z1 = (v1.z) * WIDTH/2.;
-			// Vec3f test1(x0, y0, z0);
-			// Vec3f test2(x1, y1, z1);
-			
-			float zConstant = 5000;
-			Vec3f r0 = calculatePerspective(v0, zConstant);
-			Vec3f r1 = calculatePerspective(v1, zConstant);
-			drawLine(r0.x, r0.y, r1.x, r1.y, image, Util::COLOR_WHITE);
-		}
-	}
-	delete[] wireframeZBuffer;
-}
-
 void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, TGAImage &image) {
 	bboxMin->u = image.get_width()-1;
 	bboxMin->v =  image.get_height()-1; 
@@ -184,11 +87,66 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 	} 
 }
 
+Vec3f calculatePerspective(Vec3f& vector, float zConstant) {
+	Vec4f vector4D(vector.x, vector.y, vector.z,1);
+
+	// CALCULATE viewport(width/8, height/8, width*3/4, height*3/4);
+	float x = WIDTH/8;
+	float y = HEIGHT/8;
+	float w = WIDTH*3/4;
+	float h = HEIGHT*3/4;
+	std::vector<Vec4f> matrix = {
+		// | w/2.  0    0    x+w/2. |
+		// | 0  h/2.    0    y+h/2. |
+		// | 0  0    (DEPTH)/2.    DEPTH/2. |
+		// | 0  0    0.  1 |
+		Vec4f(w/2., 0., 0., x+w/2.),
+		Vec4f(0., h/2., 0., y+h/2.),
+		Vec4f(0., 0., (DEPTH)/2., DEPTH/2.),
+		Vec4f(0., 0., 0., 1.)
+	};
+	std::vector<Vec4f> projection = { 
+		// | 1  0    0    0 |
+		// | 0  1    0    0 |
+		// | 0  0    1    0 |
+		// | 0  0  -1./c  1 |
+		Vec4f(1., 0., 0., 0.),
+		Vec4f(0., 1., 0., 0.),
+		Vec4f(0., 0., 1., (-1./ zConstant)),
+		Vec4f(0., 0., 0., 1.)
+	};
+	std::vector<Vec4f> resultMatrix = {};
+	for (int i = 0; i < 4; i++) {
+		Vec4f row = matrix[i];
+	
+		float newX = row.x * projection[0].x + row.y * projection[0].y + row.z * projection[0].z + row.w * projection[0].w;
+		float newY = row.x * projection[1].x + row.y * projection[1].y + row.z * projection[1].z + row.w * projection[1].w;
+		float newZ = row.x * projection[2].x + row.y * projection[2].y + row.z * projection[2].z + row.w * projection[2].w;
+		float newW = row.x * projection[3].x + row.y * projection[3].y + row.z * projection[3].z + row.w * projection[3].w;
+		Vec4f newProjection(newX, newY, newZ, newW);
+		resultMatrix.push_back(newProjection);
+	}
+	
+	float values[4];
+	for (int i = 0; i < resultMatrix.size(); i++) {
+		values[i] = resultMatrix[i] * vector4D;
+	}
+	
+	Vec4f result4D(values[0],values[1],values[2],values[3]);
+	Vec3f result(result4D.x/result4D.w, result4D.y/result4D.w, result4D.z/result4D.w);
+
+	float x0 = (result.x + 1.) * (float)WIDTH / 2.;
+	float y0 = (result.y + 1.) * (float)HEIGHT / 2.;
+	float z0 = result.z * (float)DEPTH;
+
+	return result;
+}
+
 void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Vec3f *uvTextureVertex, float *zbuffer, TGAImage &image, const float intensity, TGAColor color) { 	
 	Vec3f triangleVertexProjected[3];
 	
 	for (int i = 0; i < 3; i++) {
-		triangleVertexProjected[i] = calculatePerspective(triangleVertex[i], 3.);
+		triangleVertexProjected[i] = calculatePerspective(triangleVertex[i], 100.);
 	}
 
 	Vec2i* bboxMin = new Vec2i();
@@ -281,6 +239,40 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 	}
 }
 
+void drawWireframeObjModel(TGAImage &image) {
+	float* wireframeZBuffer = new float[model->totalFaces() * 3];
+	for (int i=0; i < model->totalFaces(); i++) {
+		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
+		for (int j=0; j < face.size(); j++) {
+			std::vector<int> faceVertexOrigin = face[j];
+			Vec3f v0 = model->getVertexByIndex(faceVertexOrigin[0]);
+
+			std::vector<int> faceVertexEnd = face[(j+1)%3];
+			Vec3f v1 = model->getVertexByIndex(faceVertexEnd[0]);
+
+			// TODO try at creating a z buffer for the wireframe, needs refinement
+			// float indexZ = 0.;
+			// indexZ += (v0.z + v1.z) / 2;
+			// if (wireframeZBuffer[int(i + j * 3)] >= indexZ) {
+			// 	continue;
+			// }
+			// wireframeZBuffer[int(i + j * 3)] = indexZ;
+
+			// TODO Playing with wireframe's perspective
+			// int z0 = (v0.z) * WIDTH/2.;
+			// int z1 = (v1.z) * WIDTH/2.;
+			// Vec3f test1(x0, y0, z0);
+			// Vec3f test2(x1, y1, z1);
+			
+			float zConstant = 100;
+			Vec3f r0 = calculatePerspective(v0, zConstant);
+			Vec3f r1 = calculatePerspective(v1, zConstant);
+			drawLine(r0.x, r0.y, r1.x, r1.y, image, Util::COLOR_WHITE);
+		}
+	}
+	delete[] wireframeZBuffer;
+}
+
 void drawObjModel(TGAImage &image, TGAImage* diffuseTexture, bool enableLight, bool enableWireframe) {
 	if (diffuseTexture != nullptr) {
 		drawTriangleSurfaces(image, diffuseTexture, enableLight);
@@ -320,7 +312,7 @@ int main(int argc, char** argv) {
 
 	
 	// drawTriangleExamples(image);
-	drawObjModel(image, diffuseTexture, true, true);
+	drawObjModel(image, diffuseTexture, true, false);
 	
 	
 	image.flip_vertically(); // Origin is at the left bottom corner of the image
