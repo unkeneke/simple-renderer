@@ -88,15 +88,19 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 	} 
 }
 
-Matrix createViewportMatrix(int x, int y, int w, int h) {
+Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
+	// | w  0  0  x+w  |
+	// | 0  h  0  y+h  |
+	// | 0  0  d  d    |
+	// | 0  0  0  1    |
 	Matrix m = Matrix::identity(4);
-	m[0][3] = x+w/2.f;
-	m[1][3] = y+h/2.f;
-	m[2][3] = DEPTH/2.f;
+	m[0][3] = x + w;
+	m[1][3] = y + h;
+	m[2][3] = d;
 
-	m[0][0] = w/2.f;
-	m[1][1] = h/2.f;
-	m[2][2] = DEPTH/2.f;
+	m[0][0] = w;
+	m[1][1] = h;
+	m[2][2] = d;
 	return m;
 }
 
@@ -105,15 +109,12 @@ Vec3f calculatePerspective(Vec3f& vector) {
 	// With this matrix instead of scaling "by hand" the 3D vector to the screen's resolution
 	// we use the matrix to do the same calculation, scale by half the screen
 	// then move it to the center of the resulting 2D plane
-	// | w/2.  0     0           x+w/2.   |
-	// | 0     h/2.  0           y+h/2.   |
-	// | 0     0     (DEPTH)/2.  DEPTH/2. |
-	// | 0     0     0.          1        |
-	float x = WIDTH / 8;
-	float y = HEIGHT / 8;
-	float w = WIDTH * 3/4;
-	float h = HEIGHT * 3/4;
-	Matrix viewport = createViewportMatrix(x, y, w, h);
+	float x = WIDTH / 8.;
+	float y = HEIGHT / 8.;
+	float w = WIDTH * 3/8;
+	float h = HEIGHT * 3/8;
+	float d = DEPTH / 2.f;
+	Matrix viewport = createViewportMatrix(x, y, w, h, d);
 
 	// Then the 4D projection matrix just makes sure that when we go back to 3D
 	// the viewport/camera metrix will have the vector's Z axis scale back and forth
