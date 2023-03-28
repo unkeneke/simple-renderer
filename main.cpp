@@ -94,13 +94,13 @@ Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
 	// | 0  0  d  d    |
 	// | 0  0  0  1    |
 	Matrix m = Matrix::identity(4);
-	m[0][3] = x + w;
-	m[1][3] = y + h;
-	m[2][3] = d;
+	m[0][3] = x + w/2.;
+	m[1][3] = y + h/2.;
+	m[2][3] = d/2.;
 
-	m[0][0] = w;
-	m[1][1] = h;
-	m[2][2] = d;
+	m[0][0] = w/2.;
+	m[1][1] = h/2.;
+	m[2][2] = d/2.;
 	return m;
 }
 
@@ -111,13 +111,13 @@ Vec3f calculatePerspective(Vec3f& vector) {
 	// then move it to the center of the resulting 2D plane
 	float x = WIDTH / 8.;
 	float y = HEIGHT / 8.;
-	float w = WIDTH * 3/8;
-	float h = HEIGHT * 3/8;
-	float d = DEPTH / 2.f;
+	float w = WIDTH * 3/4;
+	float h = HEIGHT * 3/4;
+	float d = DEPTH;
 	Matrix viewport = createViewportMatrix(x, y, w, h, d);
 
 	// Then the 4D projection matrix just makes sure that when we go back to 3D
-	// the viewport/camera metrix will have the vector's Z axis scale back and forth
+	// the viewport/camera matrix will have the vector's Z axis scale back and forth
 	// as we please
 	// | 1  0    0    0 |
 	// | 0  1    0    0 |
@@ -195,10 +195,7 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Ve
 					(float)diffuseTexture->get_width() * interpolatedPoint.x,
 					(float)diffuseTexture->get_height() * interpolatedPoint.y
 				);
-
-				// float zConstant = -100;
-				// Vec3f r0 = calculateZPerspective(P, zConstant);
-					
+				
 				image.set(P.x, P.y, sectionColor * intensity);
 			} else {
 				image.set(P.x, P.y, color * intensity);
@@ -214,7 +211,6 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 	for (int i=0; i < model->totalFaces(); i++) {
 		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		Vec3f triangleVertex[3] = {};
-		Vec3f originaVertex[3] = {};
 		Vec3f textureCoords[3];
 		for (int j=0; j < 3; j++) {
 			std::vector<int> faceVertex = face[j];
@@ -257,12 +253,6 @@ void drawWireframeObjModel(TGAImage &image) {
 			// 	continue;
 			// }
 			// wireframeZBuffer[int(i + j * 3)] = indexZ;
-
-			// TODO Playing with wireframe's perspective
-			// int z0 = (v0.z) * WIDTH/2.;
-			// int z1 = (v1.z) * WIDTH/2.;
-			// Vec3f test1(x0, y0, z0);
-			// Vec3f test2(x1, y1, z1);
 			
 			Vec3f r0 = calculatePerspective(v0);
 			Vec3f r1 = calculatePerspective(v1);
