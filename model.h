@@ -12,9 +12,9 @@ private:
 public:
 	Model(const char *filename);
 	~Model();
-	int totalVertex();
-	int totalFaces();
-	int totalTextureVertex();
+	int getTotalVertices();
+	int getTotalFaces();
+	int getTotalTextureVertices();
 	Vec3f getVertexByIndex(int i);
 	std::vector<std::vector<int>> getFaceByIndex(int idx);
 	Vec3f getTextureVertexByIndex(int i);

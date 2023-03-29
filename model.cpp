@@ -49,15 +49,15 @@ Model::Model(const char *filename) : verts_(), faces_() {
 Model::~Model() {
 }
 
-int Model::totalVertex() {
+int Model::getTotalVertices() {
     return (int)verts_.size();
 }
 
-int Model::totalTextureVertex() {
+int Model::getTotalTextureVertices() {
     return (int)vertTextures_.size();
 }
 
-int Model::totalFaces() {
+int Model::getTotalFaces() {
     return (int)faces_.size();
 }
 

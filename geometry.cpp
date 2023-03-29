@@ -7,11 +7,11 @@
 
 Matrix::Matrix(int r, int c) : m(std::vector<std::vector<float> >(r, std::vector<float>(c, 0.f))), rows(r), cols(c) { }
 
-int Matrix::nrows() {
+int Matrix::getTotalRows() {
     return rows;
 }
 
-int Matrix::ncols() {
+int Matrix::getTotalColumns() {
     return cols;
 }
 
@@ -94,10 +94,10 @@ Matrix Matrix::inverse() {
 }
 
 std::ostream& operator<<(std::ostream& s, Matrix& m) {
-    for (int i=0; i<m.nrows(); i++)  {
-        for (int j=0; j<m.ncols(); j++) {
+    for (int i=0; i<m.getTotalRows(); i++)  {
+        for (int j=0; j<m.getTotalColumns(); j++) {
             s << m[i][j];
-            if (j<m.ncols()-1) s << "\t";
+            if (j<m.getTotalColumns()-1) s << "\t";
         }
         s << "\n";
     }

@@ -22,6 +22,7 @@ Vec3f lightDirection(0,0,-1);
 Vec2i clamp(WIDTH - 1, HEIGHT - 1);
 Vec3f camera(0,0,3);
 
+
 std::vector<Vec2f> drawLine(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	std::vector<Vec2f> linePoints;
 	
@@ -104,6 +105,21 @@ Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
 	return m;
 }
 
+Matrix lookat(Vec3f eye, Vec3f center, Vec3f up) {
+	Vec3f z = (eye - center).normalize();
+	Vec3f x = (up ^ z).normalize();
+	Vec3f y = (z ^ x).normalize();
+	Matrix Minv = Matrix::identity(4);
+	Matrix Tr   = Matrix::identity(4);
+	for (int i=0; i<3; i++) {
+		Minv[0][i] = x[i];
+		Minv[1][i] = y[i];
+		Minv[2][i] = z[i];
+		Tr[i][3] = -eye[i];
+	}
+	return Minv * Tr;
+}
+
 Vec3f calculatePerspective(Vec3f& vector) {
 	
 	// With this matrix instead of scaling "by hand" the 3D vector to the screen's resolution
@@ -129,6 +145,7 @@ Vec3f calculatePerspective(Vec3f& vector) {
 	// Now let's transform the original 3D vector into 4D for homogeneous coordinates
 	// projected, scaled, and turn back to 3D
 	Matrix vector4D = Matrix::vectorToMatrix(vector);
+	
 	Vec3f result = Matrix::matrixToVector( viewport * projection * vector4D );
 
 	return result;
@@ -208,7 +225,7 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Ve
 }
 
 void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enableLight) {
-	for (int i=0; i < model->totalFaces(); i++) {
+	for (int i=0; i < model->getTotalFaces(); i++) {
 		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		Vec3f triangleVertex[3] = {};
 		Vec3f textureCoords[3];
@@ -236,8 +253,8 @@ void drawTriangleSurfaces(TGAImage &image, TGAImage* diffuseTexture, bool enable
 }
 
 void drawWireframeObjModel(TGAImage &image) {
-	float* wireframeZBuffer = new float[model->totalFaces() * 3];
-	for (int i=0; i < model->totalFaces(); i++) {
+	float* wireframeZBuffer = new float[model->getTotalFaces() * 3];
+	for (int i=0; i < model->getTotalFaces(); i++) {
 		std::vector<std::vector<int>> face = model->getFaceByIndex(i);
 		for (int j=0; j < face.size(); j++) {
 			std::vector<int> faceVertexOrigin = face[j];
