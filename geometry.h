@@ -35,7 +35,7 @@ template <class t> struct Vec3 {
 	Vec3<t> operator -(const Vec3<t> &v) const { return Vec3<t>(x-v.x, y-v.y, z-v.z); }
 	Vec3<t> operator *(float f)          const { return Vec3<t>(x*f, y*f, z*f); }
 	t       operator *(const Vec3<t> &v) const { return x*v.x + y*v.y + z*v.z; }
-	t&      operator[](const int i) { if (i<=0) return x; else if (i==1) return y; else return z; }
+	t&      operator [](const int i) { if (i<=0) return x; else if (i==1) return y; else return z; }
 	
 	float norm () const { return std::sqrt(x*x+y*y+z*z); }
 	Vec3<t> & normalize(t l=1) { *this = (*this)*(l/norm()); return *this; }

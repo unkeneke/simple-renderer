@@ -20,7 +20,7 @@ Model *model = NULL;
 TGAImage *diffuseTexture =  new TGAImage();
 Vec3f lightDirection(0,0,-1);
 Vec2i clamp(WIDTH - 1, HEIGHT - 1);
-Vec3f camera(0,0,3);
+Vec3f camera(0,0,1000);
 
 
 std::vector<Vec2f> drawLine(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
@@ -90,10 +90,10 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 }
 
 Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
-	// | w  0  0  x+w  |
-	// | 0  h  0  y+h  |
-	// | 0  0  d  d    |
-	// | 0  0  0  1    |
+	// | w/2  0    0    x+w/2  |
+	// | 0    h/2  0    y+h/2  |
+	// | 0    0    d/2  d/2    |
+	// | 0    0    0    1      |
 	Matrix m = Matrix::identity(4);
 	m[0][3] = x + w/2.;
 	m[1][3] = y + h/2.;
@@ -105,13 +105,13 @@ Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
 	return m;
 }
 
-Matrix lookat(Vec3f eye, Vec3f center, Vec3f up) {
+Matrix lookat(Vec3f& eye, Vec3f& center, Vec3f& up) {
 	Vec3f z = (eye - center).normalize();
 	Vec3f x = (up ^ z).normalize();
 	Vec3f y = (z ^ x).normalize();
 	Matrix Minv = Matrix::identity(4);
 	Matrix Tr   = Matrix::identity(4);
-	for (int i=0; i<3; i++) {
+	for (int i=0; i < 3; i++) {
 		Minv[0][i] = x[i];
 		Minv[1][i] = y[i];
 		Minv[2][i] = z[i];
@@ -145,13 +145,19 @@ Vec3f calculatePerspective(Vec3f& vector) {
 	// Now let's transform the original 3D vector into 4D for homogeneous coordinates
 	// projected, scaled, and turn back to 3D
 	Matrix vector4D = Matrix::vectorToMatrix(vector);
+
+	Vec3f eye(.5,.5, 1);
+	Vec3f center(0,0,0);
+	Vec3f up(0,1,0);
+	Matrix modelView = lookat(eye, center, up);
 	
-	Vec3f result = Matrix::matrixToVector( viewport * projection * vector4D );
+	Vec3f result = Matrix::matrixToVector( viewport * projection * modelView * vector4D );
 
 	return result;
 	
 	// This is the "flat" calculation method for the 3D vectors on a 2D plane without camera projection
 	// scaled to the resolution of the screen or image
+	// Since there is no transformation or rotation of any kind, the camera would be fixed on (0, 0, z)
 	// float x0 = (vector.x + 1.) * (float)WIDTH / 2.;
 	// float y0 = (vector.y + 1.) * (float)HEIGHT / 2.;
 	// float z0 = vector.z * (float)DEPTH;
