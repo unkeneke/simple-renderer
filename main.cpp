@@ -105,7 +105,7 @@ Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
 	return m;
 }
 
-Matrix lookat(Vec3f& eye, Vec3f& center, Vec3f& up) {
+Matrix generateModelView(Vec3f& eye, Vec3f& center, Vec3f& up) {
 	Vec3f z = (eye - center).normalize();
 	Vec3f x = (up ^ z).normalize();
 	Vec3f y = (z ^ x).normalize();
@@ -149,7 +149,7 @@ Vec3f calculatePerspective(Vec3f& vector) {
 	Vec3f eye(.5,.5, 1);
 	Vec3f center(0,0,0);
 	Vec3f up(0,1,0);
-	Matrix modelView = lookat(eye, center, up);
+	Matrix modelView = generateModelView(eye, center, up);
 	
 	Vec3f result = Matrix::matrixToVector( viewport * projection * modelView * vector4D );
 
