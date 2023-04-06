@@ -18,9 +18,13 @@ const std::wstring OUTPUT_TGA_NAME = L"output.tga";
 float *zBuffer = new float[WIDTH * HEIGHT];
 Model *model = NULL;
 TGAImage *diffuseTexture =  new TGAImage();
-Vec3f lightDirection(0,0,-1);
 Vec2i clamp(WIDTH - 1, HEIGHT - 1);
+
+Vec3f eye(1,1, 3);
+Vec3f center(0,0,0);
+Vec3f up(0,1,0);
 Vec3f camera(0,0,1000);
+Vec3f lightDirection(0,0,-1);
 
 
 std::vector<Vec2f> drawLine(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
@@ -145,10 +149,7 @@ Vec3f calculatePerspective(Vec3f& vector) {
 	// Now let's transform the original 3D vector into 4D for homogeneous coordinates
 	// projected, scaled, and turn back to 3D
 	Matrix vector4D = Matrix::vectorToMatrix(vector);
-
-	Vec3f eye(.5,.5, 1);
-	Vec3f center(0,0,0);
-	Vec3f up(0,1,0);
+	
 	Matrix modelView = generateModelView(eye, center, up);
 	
 	Vec3f result = Matrix::matrixToVector( viewport * projection * modelView * vector4D );
