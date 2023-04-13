@@ -308,7 +308,7 @@
     <ClInclude Include="geometry.h" />
     <ClInclude Include="model.h" />
     <ClInclude Include="tgaimage.h" />
-    <ClInclude Include="util.h" />
+    <ClInclude Include="gl_util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

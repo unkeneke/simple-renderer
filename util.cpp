@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "util.h"
+#include "gl_util.h"
 #include "tgaimage.h"
 
 const TGAColor Util::COLOR_WHITE               = TGAColor(255, 255, 255, 255);

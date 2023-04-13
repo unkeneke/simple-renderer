@@ -6,7 +6,7 @@
 #include "geometry.h"
 #include <shlwapi.h>
 #include <vector>
-#include "util.h"
+#include "gl_util.h"
 
 
 const int WIDTH  = 800;

@@ -32,4 +32,10 @@ public:
 	static void drawTriangleExamples(TGAImage &image);
 };
 
+struct IShader {
+	virtual ~IShader();
+	virtual Vec3i vertex(int iface, int nthvert) = 0;
+	virtual bool fragment(Vec3f bar, TGAColor &color) = 0;
+};
+
 #endif //__UTIL_H__
