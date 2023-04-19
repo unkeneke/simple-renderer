@@ -6,8 +6,6 @@
 
 class Util {
 
-	
-
 public:
 	static const TGAColor COLOR_WHITE;
 	static const TGAColor COLOR_RED;
