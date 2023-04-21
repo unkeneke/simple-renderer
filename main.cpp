@@ -26,6 +26,10 @@ Vec3f up(0,1,0);
 Vec3f camera(0,0,1000);
 Vec3f lightDirection(0,0,-1);
 
+Matrix viewport = Util::getViewport(WIDTH, HEIGHT, DEPTH);
+Matrix modelView = Util::generateModelView(eye, center, up);
+Matrix projection = Util::getProjection(camera);
+
 
 std::vector<Vec2f> drawLine(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor color) {
 	std::vector<Vec2f> linePoints;
@@ -84,7 +88,7 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 	bboxMin->v =  image.get_height()-1; 
 	bboxMax->u = 0;
 	bboxMax->v = 0;
-	for (int i=0; i<3; i++) { 
+	for (int i=0; i<3; i++) {  
 		bboxMin->x = std::max<int>(0, std::min<int>(bboxMin->x, triangleVertex[i].x));
 		bboxMin->y = std::max<int>(0, std::min<int>(bboxMin->y, triangleVertex[i].y));
 
@@ -93,64 +97,10 @@ void setScreenBoundaries(Vec3f *triangleVertex, Vec2i* bboxMin, Vec2i* bboxMax, 
 	} 
 }
 
-Matrix createViewportMatrix(int x, int y, int w, int h, int d) {
-	// | w/2  0    0    x+w/2  |
-	// | 0    h/2  0    y+h/2  |
-	// | 0    0    d/2  d/2    |
-	// | 0    0    0    1      |
-	Matrix m = Matrix::identity(4);
-	m[0][3] = x + w/2.;
-	m[1][3] = y + h/2.;
-	m[2][3] = d/2.;
-
-	m[0][0] = w/2.;
-	m[1][1] = h/2.;
-	m[2][2] = d/2.;
-	return m;
-}
-
-Matrix generateModelView(Vec3f& eye, Vec3f& center, Vec3f& up) {
-	Vec3f z = (eye - center).normalize();
-	Vec3f x = (up ^ z).normalize();
-	Vec3f y = (z ^ x).normalize();
-	Matrix Minv = Matrix::identity(4);
-	Matrix Tr   = Matrix::identity(4);
-	for (int i=0; i < 3; i++) {
-		Minv[0][i] = x[i];
-		Minv[1][i] = y[i];
-		Minv[2][i] = z[i];
-		Tr[i][3] = -eye[i];
-	}
-	return Minv * Tr;
-}
-
-Vec3f calculatePerspective(Vec3f& vector) {
-	
-	// With this matrix instead of scaling "by hand" the 3D vector to the screen's resolution
-	// we use the matrix to do the same calculation, scale by half the screen
-	// then move it to the center of the resulting 2D plane
-	float x = WIDTH / 8.;
-	float y = HEIGHT / 8.;
-	float w = WIDTH * 3/4;
-	float h = HEIGHT * 3/4;
-	float d = DEPTH;
-	Matrix viewport = createViewportMatrix(x, y, w, h, d);
-
-	// Then the 4D projection matrix just makes sure that when we go back to 3D
-	// the viewport/camera matrix will have the vector's Z axis scale back and forth
-	// as we please
-	// | 1  0    0    0 |
-	// | 0  1    0    0 |
-	// | 0  0    1    0 |
-	// | 0  0  -1./c  1 |
-	Matrix projection = Matrix::identity(4);
-	projection[3][2] = -1.f/camera.z;
-
-	// Now let's transform the original 3D vector into 4D for homogeneous coordinates
+Vec3f calculateCameraVertex(Vec3f& vector) {
+	// Let's transform the original 3D vector into 4D for homogeneous coordinates
 	// projected, scaled, and turn back to 3D
 	Matrix vector4D = Matrix::vectorToMatrix(vector);
-	
-	Matrix modelView = generateModelView(eye, center, up);
 	
 	Vec3f result = Matrix::matrixToVector( viewport * projection * modelView * vector4D );
 
@@ -170,7 +120,7 @@ void drawTriangleWithZBuffer(Vec3f *triangleVertex, TGAImage* diffuseTexture, Ve
 	Vec3f triangleVertexProjected[3];
 	
 	for (int i = 0; i < 3; i++) {
-		triangleVertexProjected[i] = calculatePerspective(triangleVertex[i]);
+		triangleVertexProjected[i] = calculateCameraVertex(triangleVertex[i]);
 	}
 
 	Vec2i* bboxMin = new Vec2i();
@@ -278,8 +228,8 @@ void drawWireframeObjModel(TGAImage &image) {
 			// }
 			// wireframeZBuffer[int(i + j * 3)] = indexZ;
 			
-			Vec3f r0 = calculatePerspective(v0);
-			Vec3f r1 = calculatePerspective(v1);
+			Vec3f r0 = calculateCameraVertex(v0);
+			Vec3f r1 = calculateCameraVertex(v1);
 			drawLine(r0.x, r0.y, r1.x, r1.y, image, Util::COLOR_WHITE);
 		}
 	}

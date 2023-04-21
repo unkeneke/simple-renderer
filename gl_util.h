@@ -16,9 +16,13 @@ public:
 	static const TGAColor COLOR_RANDOM;
 	static const TGAColor COLOR_TEXTURE;
 
-	Vec2f calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2);
-	void drawVectorToPoint(std::vector<Vec2f> linePoints, Vec2f point, TGAImage &image, TGAColor color);
-	void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int yBuffer[]);
+	static Matrix createViewportMatrix(int x, int y, int w, int h, int d);
+	static Matrix getViewport(int width, int height, int depth);
+	static Matrix getProjection(Vec3f& camera);
+	static Matrix generateModelView(Vec3f& eye, Vec3f& center, Vec3f& up);
+	static Vec2f calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2);
+	static void drawVectorToPoint(std::vector<Vec2f> linePoints, Vec2f point, TGAImage &image, TGAColor color);
+	static void rasterize2dDepthBuffer(Vec2i p0, Vec2i p1, TGAImage &image, TGAColor color, int yBuffer[]);
 	static char* convertWStringToCharPtr(_In_ std::wstring input);
 	static Vec2f linearInterpolate(Vec2f v0, Vec2f v1, float t);
 	static Vec3f lerp(const Vec3f& start, const Vec3f& end, float t);
@@ -30,7 +34,18 @@ public:
 	static void drawTriangleExamples(TGAImage &image);
 };
 
-struct IShader {
+class IShader {
+protected:
+	Matrix* viewport;
+	Matrix* projection;
+	Matrix* modelView;
+	
+public:
+	IShader(Matrix* viewport, Matrix* projection, Matrix* modelView) {
+		this->viewport = viewport;
+		this->projection = projection;
+		this->modelView = modelView;
+	}
 	virtual ~IShader();
 	virtual Vec3i vertex(int iface, int nthvert) = 0;
 	virtual bool fragment(Vec3f bar, TGAColor &color) = 0;

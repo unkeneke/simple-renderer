@@ -13,6 +13,65 @@ const TGAColor Util::COLOR_BACKGROUND_GRADIENT = TGAColor(-1, 0,   0,   255);
 const TGAColor Util::COLOR_RANDOM              = TGAColor(-2, 0,   0,   255);
 const TGAColor Util::COLOR_TEXTURE             = TGAColor(-3, 0,   0,   255);
 
+Matrix Util::createViewportMatrix(int x, int y, int w, int h, int d) {
+    // | w/2  0    0    x+w/2  |
+    // | 0    h/2  0    y+h/2  |
+    // | 0    0    d/2  d/2    |
+    // | 0    0    0    1      |
+    Matrix m = Matrix::identity(4);
+    m[0][3] = x + w/2.;
+    m[1][3] = y + h/2.;
+    m[2][3] = d/2.;
+
+    m[0][0] = w/2.;
+    m[1][1] = h/2.;
+    m[2][2] = d/2.;
+    return m;
+}
+
+
+Matrix Util::getViewport(int width, int height, int depth) {
+    // With this matrix instead of scaling "by hand" the 3D vector to the screen's resolution
+    // we use the matrix to do the same calculation, scale by half the screen
+    // then move it to the center of the resulting 2D plane
+    float x = width / 8.;
+    float y = height / 8.;
+    float w = width * 3/4;
+    float h = height * 3/4;
+    float d = depth;
+    Matrix viewport = createViewportMatrix(x, y, w, h, d);
+
+    return viewport;
+}
+
+Matrix Util::getProjection(Vec3f& camera) {
+    // Then the 4D projection matrix just makes sure that when we go back to 3D
+    // the viewport/camera matrix will have the vector's Z axis scale back and forth
+    // as we please
+    // | 1  0    0    0 |
+    // | 0  1    0    0 |
+    // | 0  0    1    0 |
+    // | 0  0  -1./c  1 |
+    Matrix projection = Matrix::identity(4);
+    projection[3][2] = -1.f/camera.z;
+    return projection;
+}
+
+Matrix Util::generateModelView(Vec3f& eye, Vec3f& center, Vec3f& up) {
+    Vec3f z = (eye - center).normalize();
+    Vec3f x = (up ^ z).normalize();
+    Vec3f y = (z ^ x).normalize();
+    Matrix Minv = Matrix::identity(4);
+    Matrix Tr   = Matrix::identity(4);
+    for (int i=0; i < 3; i++) {
+        Minv[0][i] = x[i];
+        Minv[1][i] = y[i];
+        Minv[2][i] = z[i];
+        Tr[i][3] = -eye[i];
+    }
+    return Minv * Tr;
+}
+
 Vec2f Util::calculateTriangleCentroid(Vec2i t0, Vec2i t1, Vec2i t2) {
     float xc = (t0.x + t1.x + t2.x) / 3;//* 0.33333333333; // this could be faster than division
     float yc = (t0.y + t1.y + t2.y) / 3;//* 0.33333333333;
