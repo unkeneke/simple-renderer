@@ -7,6 +7,7 @@
 #include <shlwapi.h>
 #include <vector>
 #include "gl_util.h"
+#include "shaders.h"
 
 
 const int WIDTH  = 800;
@@ -101,6 +102,8 @@ Vec3f calculateCameraVertex(Vec3f& vector) {
 	// Let's transform the original 3D vector into 4D for homogeneous coordinates
 	// projected, scaled, and turn back to 3D
 	Matrix vector4D = Matrix::vectorToMatrix(vector);
+ 
+	GouraudShader shader(viewport, projection, modelView);
 	
 	Vec3f result = Matrix::matrixToVector( viewport * projection * modelView * vector4D );
 

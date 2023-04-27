@@ -34,21 +34,4 @@ public:
 	static void drawTriangleExamples(TGAImage &image);
 };
 
-class IShader {
-protected:
-	Matrix* viewport;
-	Matrix* projection;
-	Matrix* modelView;
-	
-public:
-	IShader(Matrix* viewport, Matrix* projection, Matrix* modelView) {
-		this->viewport = viewport;
-		this->projection = projection;
-		this->modelView = modelView;
-	}
-	virtual ~IShader();
-	virtual Vec3i vertex(int iface, int nthvert) = 0;
-	virtual bool fragment(Vec3f bar, TGAColor &color) = 0;
-};
-
 #endif //__UTIL_H__

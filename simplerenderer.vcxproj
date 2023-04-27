@@ -380,6 +380,7 @@
   <ItemGroup>
     <ClInclude Include="geometry.h" />
     <ClInclude Include="model.h" />
+    <ClInclude Include="shaders.h" />
     <ClInclude Include="tgaimage.h" />
     <ClInclude Include="gl_util.h" />
   </ItemGroup>
