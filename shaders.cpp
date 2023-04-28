@@ -10,7 +10,7 @@
     
 Vec4f GouraudShader::vertex(int iface, int nthvert) {
     // varying_intensity[nthvert] = std::max(0.f, model->normal(iface, nthvert)*light_dir); // get diffuse lighting intensity
-    // Vec4f gl_Vertex = embed<4>(model->vert(iface, nthvert)); // read the vertex from .obj file
+    // Vec4f gl_Vertex = std::embed<4>(model->vert(iface, nthvert)); // read the vertex from .obj file
     // return this->viewport * this->projection * this->modelView * gl_Vertex; // transform it to screen coordinates
 
     return Vec4f();

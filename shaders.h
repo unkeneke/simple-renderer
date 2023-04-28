@@ -16,7 +16,9 @@ public:
 		this->projection = &projection;
 		this->modelView = &modelView;
 	}
-	virtual ~IShader();
+	virtual ~IShader() {
+		// needs testing for children classes
+	}
 	virtual Vec4f vertex(int iface, int nthvert) = 0;
 	virtual bool fragment(Vec3f bar, TGAColor &color) = 0;
 };
