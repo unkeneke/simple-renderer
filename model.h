@@ -8,6 +8,7 @@ class Model {
 private:
 	std::vector<Vec3f> verts_;
 	std::vector<Vec3f> vertTextures_;
+	std::vector<Vec3f> vertNormals_;
 	std::vector<std::vector<std::vector<int>> > faces_;
 public:
 	Model(const char *filename);

@@ -28,6 +28,13 @@ Model::Model(const char *filename) : verts_(), faces_() {
                 iss >> v.raw[i];
             }
             vertTextures_.push_back(v);
+        } else if (!line.compare(0, 4, "vn  ")) {
+            iss >> trash;
+            Vec3f v;
+            for (int i=0;i<3;i++) {
+                iss >> v.raw[i];
+            }
+            vertNormals_.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
             std::vector<std::vector<int>> f;
             int idx, idy, idz;
@@ -43,7 +50,7 @@ Model::Model(const char *filename) : verts_(), faces_() {
             faces_.push_back(f);
         }
     }
-    std::cerr << "# v# " << verts_.size() << " vt# " << vertTextures_.size() << " f# "  << faces_.size() << std::endl;
+    std::cerr << "# v# " << verts_.size() << " vt# " << vertTextures_.size() << " vn# " << vertNormals_.size() << " f# "  << faces_.size() << std::endl;
 }
 
 Model::~Model() {
